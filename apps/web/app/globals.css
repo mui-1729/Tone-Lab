@@ -99,6 +99,29 @@ h1 {
 
 .results { margin-top: 72px; }
 .result-title h2 { margin: 6px 0 28px; font-size: clamp(34px, 5vw, 58px); }
+.alignment-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px 24px;
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+}
+.alignment-card-warning { border-color: var(--danger); }
+.alignment-card .eyebrow { margin: 0 0 8px; }
+.alignment-message { margin: 0; font-weight: 800; line-height: 1.5; }
+.alignment-meta { margin: 0; color: var(--muted); font-size: 13px; }
+.alignment-warning {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--danger);
+  line-height: 1.6;
+}
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .summary-grid p { margin: 0; padding: 18px; background: var(--accent); color: #111; font-weight: 800; line-height: 1.55; }
 .legend { display: flex; justify-content: space-between; margin: 34px 0 12px; color: var(--muted); font-size: 12px; }

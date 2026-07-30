@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { compareAudio } from "@/lib/api";
-import type { CompareResponse, ToneDimension } from "@/lib/types";
+import type { AlignmentInfo, CompareResponse, ToneDimension } from "@/lib/types";
 
 const ACCEPT = ".wav,.mp3,.flac,.ogg,audio/wav,audio/mpeg,audio/flac,audio/ogg";
 
@@ -49,6 +49,35 @@ function AudioInput({
 function directionLabel(value: number) {
   if (Math.abs(value) < 8) return "かなり近い";
   return value > 0 ? "自分の音が強い" : "参考音が強い";
+}
+
+function AlignmentStatus({ alignment }: { alignment: AlignmentInfo }) {
+  const offset = alignment.offset_seconds;
+  const absoluteOffset = Math.abs(offset);
+  let adjustment = "開始位置の補正はほぼ不要でした。";
+
+  if (absoluteOffset >= 0.02) {
+    adjustment = offset > 0
+      ? `自分の音を約${absoluteOffset.toFixed(2)}秒前へ補正しました。`
+      : `参考音を約${absoluteOffset.toFixed(2)}秒前へ補正しました。`;
+  }
+
+  return (
+    <section className={`alignment-card${alignment.warning ? " alignment-card-warning" : ""}`}>
+      <div>
+        <p className="eyebrow">ALIGNMENT / 位置合わせ</p>
+        <p className="alignment-message">{adjustment}</p>
+      </div>
+      <p className="alignment-meta">
+        一致度 {(alignment.confidence * 100).toFixed(0)}%
+        <span aria-hidden="true"> / </span>
+        比較区間 {alignment.overlap_seconds.toFixed(1)}秒
+      </p>
+      {alignment.warning ? (
+        <p className="alignment-warning" role="alert">{alignment.warning}</p>
+      ) : null}
+    </section>
+  );
 }
 
 function DimensionCard({ dimension }: { dimension: ToneDimension }) {
@@ -120,6 +149,7 @@ export default function Home() {
         </div>
         <div className="conditions">
           <span>同じフレーズ推奨</span>
+          <span>開始位置を自動補正</span>
           <span>最大30秒</span>
           <span>WAV / MP3 / FLAC / OGG</span>
         </div>
@@ -135,6 +165,7 @@ export default function Home() {
             <p className="eyebrow">COMPARISON</p>
             <h2>主な違い</h2>
           </div>
+          <AlignmentStatus alignment={result.alignment} />
           <div className="summary-grid">
             {result.summary.map((item) => <p key={item}>{item}</p>)}
           </div>
@@ -150,7 +181,11 @@ export default function Home() {
           </div>
           <details className="raw-data">
             <summary>測定値を見る</summary>
-            <pre>{JSON.stringify({ reference: result.reference, current: result.current }, null, 2)}</pre>
+            <pre>{JSON.stringify({
+              alignment: result.alignment,
+              reference: result.reference,
+              current: result.current,
+            }, null, 2)}</pre>
           </details>
           <p className="disclaimer">{result.disclaimer}</p>
         </section>

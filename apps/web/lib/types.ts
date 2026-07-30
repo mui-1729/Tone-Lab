@@ -23,6 +23,13 @@ export type AudioFeatures = {
   band_energy_percent: BandEnergy;
 };
 
+export type AlignmentInfo = {
+  offset_seconds: number;
+  overlap_seconds: number;
+  confidence: number;
+  warning: string | null;
+};
+
 export type ToneDimension = {
   key: "brightness" | "body" | "attack" | "compression" | "roughness";
   label: string;
@@ -33,6 +40,7 @@ export type ToneDimension = {
 };
 
 export type CompareResponse = {
+  alignment: AlignmentInfo;
   reference: AudioFeatures;
   current: AudioFeatures;
   dimensions: ToneDimension[];

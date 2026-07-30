@@ -28,6 +28,13 @@ class AudioFeatures(BaseModel):
     band_energy_percent: BandEnergy
 
 
+class AlignmentInfo(BaseModel):
+    offset_seconds: float
+    overlap_seconds: float
+    confidence: float = Field(ge=0, le=1)
+    warning: str | None = None
+
+
 class ToneDimension(BaseModel):
     key: Literal["brightness", "body", "attack", "compression", "roughness"]
     label: str
@@ -38,6 +45,7 @@ class ToneDimension(BaseModel):
 
 
 class CompareResponse(BaseModel):
+    alignment: AlignmentInfo
     reference: AudioFeatures
     current: AudioFeatures
     dimensions: list[ToneDimension]

@@ -32,5 +32,7 @@ def test_compare_endpoint() -> None:
 
     assert response.status_code == 200
     payload = response.json()
+    assert 0 <= payload["alignment"]["confidence"] <= 1
+    assert payload["alignment"]["overlap_seconds"] >= 0.5
     brightness = next(item for item in payload["dimensions"] if item["key"] == "brightness")
     assert brightness["difference"] > 0
