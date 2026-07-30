@@ -39,4 +39,8 @@ def test_compare_endpoint() -> None:
     brightness = next(item for item in payload["dimensions"] if item["key"] == "brightness")
     assert brightness["difference"] > 0
     assert payload["adjustment_plan"]
-    assert payload["adjustment_plan"][0]["key"] == "brightness"
+    largest_dimension = max(
+        payload["dimensions"],
+        key=lambda item: abs(item["difference"]),
+    )
+    assert payload["adjustment_plan"][0]["key"] == largest_dimension["key"]
