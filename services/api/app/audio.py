@@ -11,6 +11,13 @@ from .models import AudioFeatures, BandEnergy, ToneDimension
 TARGET_SAMPLE_RATE = 44_100
 MAX_DURATION_SECONDS = 30.0
 EPSILON = 1e-10
+FLATNESS_BANDS = (
+    (80.0, 250.0),
+    (250.0, 500.0),
+    (500.0, 2_000.0),
+    (2_000.0, 5_000.0),
+    (5_000.0, 12_000.0),
+)
 
 
 def _finite(value: float) -> float:
@@ -34,6 +41,30 @@ def _band_percent(power: np.ndarray, frequencies: np.ndarray, low: float, high: 
     total_mask = (frequencies >= 80.0) & (frequencies < 12_000.0)
     total = float(np.sum(power[total_mask])) + EPSILON
     return 100.0 * float(np.sum(power[mask])) / total
+
+
+def _bandwise_spectral_flatness(magnitude: np.ndarray, frequencies: np.ndarray) -> float:
+    """Measure noisiness inside fixed bands without treating spectral tilt as roughness."""
+    power = np.square(magnitude) + EPSILON
+    band_values: list[float] = []
+
+    for low, high in FLATNESS_BANDS:
+        mask = (frequencies >= low) & (frequencies < high)
+        band_power = power[mask]
+        if band_power.size == 0:
+            continue
+
+        geometric_mean = np.exp(np.mean(np.log(band_power), axis=0))
+        arithmetic_mean = np.mean(band_power, axis=0)
+        frame_flatness = geometric_mean / np.maximum(arithmetic_mean, EPSILON)
+        band_values.append(_median(frame_flatness))
+
+    if not band_values:
+        return 0.0
+
+    # Give each perceptual band equal influence. A global flatness score changes too
+    # strongly when only the overall EQ tilt changes.
+    return _finite(np.exp(np.mean(np.log(np.maximum(band_values, EPSILON)))))
 
 
 def analyze_signal(y: np.ndarray, sample_rate: int, filename: str) -> AudioFeatures:
@@ -69,7 +100,7 @@ def analyze_signal(y: np.ndarray, sample_rate: int, filename: str) -> AudioFeatu
     centroid = librosa.feature.spectral_centroid(S=magnitude, sr=sample_rate)[0]
     bandwidth = librosa.feature.spectral_bandwidth(S=magnitude, sr=sample_rate)[0]
     rolloff = librosa.feature.spectral_rolloff(S=magnitude, sr=sample_rate, roll_percent=0.85)[0]
-    flatness = librosa.feature.spectral_flatness(S=magnitude)[0]
+    flatness = _bandwise_spectral_flatness(magnitude, frequencies)
     zcr = librosa.feature.zero_crossing_rate(normalized, frame_length=n_fft, hop_length=hop_length)[0]
     onset = librosa.onset.onset_strength(y=normalized, sr=sample_rate, hop_length=hop_length)
 
@@ -92,7 +123,7 @@ def analyze_signal(y: np.ndarray, sample_rate: int, filename: str) -> AudioFeatu
         spectral_centroid_hz=round(_median(centroid), 3),
         spectral_bandwidth_hz=round(_median(bandwidth), 3),
         rolloff_85_hz=round(_median(rolloff), 3),
-        spectral_flatness=round(_median(flatness), 6),
+        spectral_flatness=round(flatness, 6),
         zero_crossing_rate=round(_median(zcr), 6),
         onset_strength=round(_mean(onset), 6),
         band_energy_percent=bands,
@@ -141,11 +172,13 @@ def build_dimensions(reference: AudioFeatures, current: AudioFeatures) -> list[T
 
     attack = _ratio_delta(reference.onset_strength, current.onset_strength)
 
-    compression = -0.55 * _db_delta(reference.crest_factor_db, current.crest_factor_db, 6.0)
-    compression += -0.45 * _db_delta(reference.dynamic_range_db, current.dynamic_range_db, 10.0)
+    # Short-term loudness variation is more stable under EQ than a single raw peak.
+    compression = -0.1 * _db_delta(reference.crest_factor_db, current.crest_factor_db, 10.0)
+    compression += -0.9 * _db_delta(reference.dynamic_range_db, current.dynamic_range_db, 6.0)
 
-    roughness = 0.65 * _ratio_delta(reference.spectral_flatness, current.spectral_flatness)
-    roughness += 0.35 * _ratio_delta(reference.zero_crossing_rate, current.zero_crossing_rate)
+    # Bandwise flatness avoids calling a brighter spectral tilt "rough."
+    roughness = 0.85 * _ratio_delta(reference.spectral_flatness, current.spectral_flatness)
+    roughness += 0.15 * _ratio_delta(reference.zero_crossing_rate, current.zero_crossing_rate)
 
     dimensions = [
         ToneDimension(
@@ -192,7 +225,7 @@ def build_dimensions(reference: AudioFeatures, current: AudioFeatures) -> list[T
             difference=round(roughness, 2),
             interpretation=_state(roughness, "自分の音のほうがノイズ状・非周期的な成分を多く含む可能性があります。", "参考音のほうが粗く、自分の音は滑らかに聞こえる可能性があります。"),
             evidence=[
-                f"スペクトル平坦度: 参考 {reference.spectral_flatness:.4f} / 自分 {current.spectral_flatness:.4f}",
+                f"帯域内スペクトル平坦度: 参考 {reference.spectral_flatness:.4f} / 自分 {current.spectral_flatness:.4f}",
                 f"ゼロ交差率: 参考 {reference.zero_crossing_rate:.4f} / 自分 {current.zero_crossing_rate:.4f}",
             ],
             suggestion="粗すぎる場合はGain、高域、クリッピング段数を減らします。滑らかすぎる場合は歪み量や高域倍音を少し増やします。",
