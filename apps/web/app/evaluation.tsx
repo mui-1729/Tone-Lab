@@ -12,12 +12,19 @@ const RATING_LABELS: Record<Rating, string> = {
   unsure: "わからない",
 };
 
+function safeStem(filename: string) {
+  return filename.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9ぁ-んァ-ヶ一-龠_-]+/g, "-").slice(0, 36);
+}
+
 function downloadJson(filename: string, value: unknown) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(value, null, 2)], { type: "application/json;charset=utf-8" }));
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = filename;
+  anchor.hidden = true;
+  document.body.appendChild(anchor);
   anchor.click();
+  anchor.remove();
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
@@ -46,8 +53,10 @@ export function EvaluationSection({
       predicted_difference: dimension.difference,
       rating: ratings[dimension.key] ?? "unrated",
     }));
-    downloadJson("tone-lab-evaluation.json", {
+    const filename = `tone-lab-evaluation_${safeStem(referenceName)}_vs_${safeStem(currentName)}.json`;
+    downloadJson(filename, {
       schema_version: 1,
+      app: "Tone Lab MVP 1.0",
       evaluated_at: new Date().toISOString(),
       files: { reference: referenceName, current: currentName },
       overall,
