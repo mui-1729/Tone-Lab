@@ -34,6 +34,8 @@ def test_compare_endpoint() -> None:
     payload = response.json()
     assert 0 <= payload["alignment"]["confidence"] <= 1
     assert payload["alignment"]["overlap_seconds"] >= 0.5
+    assert payload["quality"]["reference"]["warnings"] == []
+    assert payload["quality"]["current"]["warnings"] == []
     assert len(payload["visuals"]["waveform"]["reference"]) == 240
     assert len(payload["visuals"]["spectrum"]["frequencies_hz"]) == 96
     brightness = next(item for item in payload["dimensions"] if item["key"] == "brightness")
@@ -44,3 +46,16 @@ def test_compare_endpoint() -> None:
         key=lambda item: abs(item["difference"]),
     )
     assert payload["adjustment_plan"][0]["key"] == largest_dimension["key"]
+
+
+def test_empty_file_is_rejected() -> None:
+    response = TestClient(app).post(
+        "/api/v1/compare",
+        files={
+            "reference": ("reference.wav", b"", "audio/wav"),
+            "current": ("current.wav", wav_bytes(440), "audio/wav"),
+        },
+    )
+
+    assert response.status_code == 422
+    assert "空のファイル" in response.json()["detail"]
