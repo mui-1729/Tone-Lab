@@ -30,6 +30,23 @@ export type AlignmentInfo = {
   warning: string | null;
 };
 
+export type WaveformVisual = {
+  duration_seconds: number;
+  reference: number[];
+  current: number[];
+};
+
+export type SpectrumVisual = {
+  frequencies_hz: number[];
+  reference_db: number[];
+  current_db: number[];
+};
+
+export type ComparisonVisuals = {
+  waveform: WaveformVisual;
+  spectrum: SpectrumVisual;
+};
+
 export type ToneDimension = {
   key: "brightness" | "body" | "attack" | "compression" | "roughness";
   label: string;
@@ -43,6 +60,7 @@ export type CompareResponse = {
   alignment: AlignmentInfo;
   reference: AudioFeatures;
   current: AudioFeatures;
+  visuals: ComparisonVisuals;
   dimensions: ToneDimension[];
   summary: string[];
   disclaimer: string;

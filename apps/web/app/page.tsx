@@ -2,9 +2,16 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { compareAudio } from "@/lib/api";
-import type { AlignmentInfo, CompareResponse, ToneDimension } from "@/lib/types";
+import type {
+  AlignmentInfo,
+  CompareResponse,
+  ComparisonVisuals,
+  ToneDimension,
+} from "@/lib/types";
 
 const ACCEPT = ".wav,.mp3,.flac,.ogg,audio/wav,audio/mpeg,audio/flac,audio/ogg";
+const CHART_WIDTH = 640;
+const CHART_HEIGHT = 190;
 
 function AudioInput({
   id,
@@ -76,6 +83,114 @@ function AlignmentStatus({ alignment }: { alignment: AlignmentInfo }) {
       {alignment.warning ? (
         <p className="alignment-warning" role="alert">{alignment.warning}</p>
       ) : null}
+    </section>
+  );
+}
+
+function chartPoints(values: number[], min: number, max: number) {
+  const range = Math.max(max - min, Number.EPSILON);
+  return values.map((value, index) => {
+    const x = (index / Math.max(values.length - 1, 1)) * CHART_WIDTH;
+    const normalized = Math.max(0, Math.min(1, (value - min) / range));
+    const y = CHART_HEIGHT - normalized * CHART_HEIGHT;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+}
+
+function ComparisonChart({
+  title,
+  description,
+  reference,
+  current,
+  min,
+  max,
+  leftLabel,
+  rightLabel,
+}: {
+  title: string;
+  description: string;
+  reference: number[];
+  current: number[];
+  min: number;
+  max: number;
+  leftLabel: string;
+  rightLabel: string;
+}) {
+  return (
+    <article className="visual-card">
+      <div className="visual-heading">
+        <div>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+        <div className="chart-legend" aria-label="グラフの凡例">
+          <span className="legend-reference">参考音</span>
+          <span className="legend-current">自分の音</span>
+        </div>
+      </div>
+      <svg
+        className="comparison-chart"
+        viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+        role="img"
+        aria-label={`${title}の参考音と自分の音の比較`}
+      >
+        {[0.25, 0.5, 0.75].map((position) => (
+          <line
+            key={position}
+            className="chart-grid"
+            x1="0"
+            x2={CHART_WIDTH}
+            y1={CHART_HEIGHT * position}
+            y2={CHART_HEIGHT * position}
+          />
+        ))}
+        <polyline
+          className="chart-line chart-reference"
+          points={chartPoints(reference, min, max)}
+        />
+        <polyline
+          className="chart-line chart-current"
+          points={chartPoints(current, min, max)}
+        />
+      </svg>
+      <div className="chart-axis" aria-hidden="true">
+        <span>{leftLabel}</span>
+        <span>{rightLabel}</span>
+      </div>
+    </article>
+  );
+}
+
+function ComparisonVisualsSection({ visuals }: { visuals: ComparisonVisuals }) {
+  const spectrum = visuals.spectrum;
+  return (
+    <section className="visuals-section" aria-labelledby="visuals-title">
+      <div className="section-heading">
+        <p className="eyebrow">VISUAL EVIDENCE / 視覚的な根拠</p>
+        <h2 id="visuals-title">波形と周波数の違い</h2>
+      </div>
+      <div className="visual-grid">
+        <ComparisonChart
+          title="音量エンベロープ"
+          description="時間ごとの音量変化。アタックと圧縮感の判断材料です。"
+          reference={visuals.waveform.reference}
+          current={visuals.waveform.current}
+          min={0}
+          max={1}
+          leftLabel="0秒"
+          rightLabel={`${visuals.waveform.duration_seconds.toFixed(1)}秒`}
+        />
+        <ComparisonChart
+          title="平均周波数分布"
+          description="低域から高域までの強さ。明るさ・太さ・粗さの判断材料です。"
+          reference={spectrum.reference_db}
+          current={spectrum.current_db}
+          min={-60}
+          max={0}
+          leftLabel={`${spectrum.frequencies_hz[0]?.toFixed(0) ?? "80"}Hz`}
+          rightLabel={`${(spectrum.frequencies_hz.at(-1) ?? 12_000) / 1_000}kHz`}
+        />
+      </div>
     </section>
   );
 }
@@ -179,6 +294,7 @@ export default function Home() {
               <DimensionCard key={dimension.key} dimension={dimension} />
             ))}
           </div>
+          <ComparisonVisualsSection visuals={result.visuals} />
           <details className="raw-data">
             <summary>測定値を見る</summary>
             <pre>{JSON.stringify({

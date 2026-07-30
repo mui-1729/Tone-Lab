@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .alignment import load_and_align_files
 from .audio import analyze_signal, build_dimensions, build_summary
 from .models import CompareResponse
+from .visuals import build_visuals
 
 MAX_FILE_BYTES = 25 * 1024 * 1024
 ALLOWED_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg"}
@@ -84,11 +85,13 @@ async def compare(
             sample_rate,
             current.filename or "current",
         )
+        visuals = build_visuals(aligned_reference, aligned_current, sample_rate)
         dimensions = build_dimensions(reference_features, current_features)
         return CompareResponse(
             alignment=alignment,
             reference=reference_features,
             current=current_features,
+            visuals=visuals,
             dimensions=dimensions,
             summary=build_summary(dimensions),
             disclaimer=(
