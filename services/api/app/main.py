@@ -17,7 +17,7 @@ from .visuals import build_visuals
 MAX_FILE_BYTES = 25 * 1024 * 1024
 ALLOWED_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg"}
 
-app = FastAPI(title="Tone Lab API", version="0.1.0")
+app = FastAPI(title="Tone Lab API", version="1.0.0")
 
 origins = [
     origin.strip()
