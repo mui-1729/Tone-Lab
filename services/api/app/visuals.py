@@ -13,6 +13,14 @@ SPECTRUM_FLOOR_DB = -60.0
 EPSILON = 1e-10
 
 
+def _rms(signal: np.ndarray) -> float:
+    return float(np.sqrt(np.mean(np.square(signal))))
+
+
+def _match_analysis_level(signal: np.ndarray) -> np.ndarray:
+    return (signal * (0.1 / max(_rms(signal), EPSILON))).astype(np.float32)
+
+
 def _rms_envelope(signal: np.ndarray, points: int) -> np.ndarray:
     edges = np.linspace(0, signal.size, points + 1, dtype=int)
     values = np.empty(points, dtype=np.float64)
@@ -30,7 +38,7 @@ def _average_log_spectrum(
 ) -> tuple[np.ndarray, np.ndarray]:
     max_frequency = min(SPECTRUM_MAX_HZ, sample_rate / 2.0)
     power = librosa.feature.melspectrogram(
-        y=signal.astype(np.float32),
+        y=_match_analysis_level(signal),
         sr=sample_rate,
         n_fft=2_048,
         hop_length=512,
