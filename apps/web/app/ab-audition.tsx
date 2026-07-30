@@ -34,6 +34,8 @@ export function ABAudition({ referenceFile, currentFile, result }: {
   const referenceStart = offset < 0 ? -offset : 0;
   const currentStart = offset > 0 ? offset : 0;
   const duration = result.alignment.overlap_seconds;
+  const referenceRms = result.reference.rms_dbfs;
+  const currentRms = result.current.rms_dbfs;
 
   function startFor(side: Side) {
     return side === "reference" ? referenceStart : currentStart;
@@ -106,18 +108,10 @@ export function ABAudition({ referenceFile, currentFile, result }: {
   }, [referenceUrl, currentUrl]);
 
   useEffect(() => {
-    const target = Math.min(result.reference.rms_dbfs, result.current.rms_dbfs);
-    if (referenceAudio.current) referenceAudio.current.volume = levelMatched ? volumeFor(result.reference.rms_dbfs, target) : 1;
-    if (currentAudio.current) currentAudio.current.volume = levelMatched ? volumeFor(result.current.rms_dbfs, target) : 1;
-  }, [levelMatched, result.reference.rms_dbfs, result.current.rms_dbfs]);
-
-  useEffect(() => {
-    referenceAudio.current?.pause();
-    currentAudio.current?.pause();
-    setActive("reference");
-    setPlaying(false);
-    setPosition(0);
-  }, [referenceUrl, currentUrl, offset]);
+    const target = Math.min(referenceRms, currentRms);
+    if (referenceAudio.current) referenceAudio.current.volume = levelMatched ? volumeFor(referenceRms, target) : 1;
+    if (currentAudio.current) currentAudio.current.volume = levelMatched ? volumeFor(currentRms, target) : 1;
+  }, [levelMatched, referenceRms, currentRms]);
 
   return (
     <section className="ab-audition" aria-labelledby="ab-title">
