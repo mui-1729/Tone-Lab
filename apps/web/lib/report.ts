@@ -7,8 +7,9 @@ export type ReportFiles = {
 
 export function reportPayload(result: CompareResponse, files: ReportFiles) {
   return {
+    schema_version: 1,
     exported_at: new Date().toISOString(),
-    app: "Tone Lab MVP",
+    app: "Tone Lab MVP 1.0",
     files,
     alignment: result.alignment,
     quality: result.quality,
@@ -26,7 +27,7 @@ export function reportPayload(result: CompareResponse, files: ReportFiles) {
 export function reportMarkdown(result: CompareResponse, files: ReportFiles) {
   const payload = reportPayload(result, files);
   const lines = [
-    "# Tone Lab 比較レポート",
+    "# Tone Lab MVP 1.0 比較レポート",
     "",
     `- 出力日時: ${payload.exported_at}`,
     `- 参考音: ${files.reference}`,
@@ -74,7 +75,7 @@ export function reportMarkdown(result: CompareResponse, files: ReportFiles) {
     ...result.quality.comparison_warnings.map((item) => `比較条件: ${item}`),
   ];
   lines.push("## 入力状態", "");
-  lines.push(...(warnings.length ? warnings.map((item) => `- ${item}`) : ["- 大きな問題は検出されませんでした。"]))
+  lines.push(...(warnings.length ? warnings.map((item) => `- ${item}`) : ["- 大きな問題は検出されませんでした。"]));
   lines.push("", "---", "", result.disclaimer, "");
   return lines.join("\n");
 }
