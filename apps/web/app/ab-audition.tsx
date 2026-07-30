@@ -16,11 +16,7 @@ function volumeFor(rmsDbfs: number, targetDbfs: number) {
   return Math.max(0, Math.min(1, 10 ** ((targetDbfs - rmsDbfs) / 20)));
 }
 
-export function ABAudition({
-  referenceFile,
-  currentFile,
-  result,
-}: {
+export function ABAudition({ referenceFile, currentFile, result }: {
   referenceFile: File;
   currentFile: File;
   result: CompareResponse;
@@ -35,11 +31,13 @@ export function ABAudition({
   const [levelMatched, setLevelMatched] = useState(true);
 
   const offset = result.alignment.offset_seconds;
-  const starts: Record<Side, number> = {
-    reference: offset < 0 ? -offset : 0,
-    current: offset > 0 ? offset : 0,
-  };
+  const referenceStart = offset < 0 ? -offset : 0;
+  const currentStart = offset > 0 ? offset : 0;
   const duration = result.alignment.overlap_seconds;
+
+  function startFor(side: Side) {
+    return side === "reference" ? referenceStart : currentStart;
+  }
 
   function element(side: Side) {
     return side === "reference" ? referenceAudio.current : currentAudio.current;
@@ -47,19 +45,20 @@ export function ABAudition({
 
   function alignedPosition(side: Side) {
     const audio = element(side);
-    return Math.max(0, Math.min(duration, (audio?.currentTime ?? starts[side]) - starts[side]));
+    return Math.max(0, Math.min(duration, (audio?.currentTime ?? startFor(side)) - startFor(side)));
   }
 
   function setBothTimes(nextPosition: number) {
     const safe = Math.max(0, Math.min(duration, nextPosition));
-    if (referenceAudio.current) referenceAudio.current.currentTime = starts.reference + safe;
-    if (currentAudio.current) currentAudio.current.currentTime = starts.current + safe;
+    if (referenceAudio.current) referenceAudio.current.currentTime = referenceStart + safe;
+    if (currentAudio.current) currentAudio.current.currentTime = currentStart + safe;
     setPosition(safe);
   }
 
   async function playSide(side: Side) {
     const audio = element(side);
     if (!audio) return;
+    audio.currentTime = startFor(side) + Math.min(position, duration);
     try {
       await audio.play();
       setPlaying(true);
@@ -91,102 +90,50 @@ export function ABAudition({
     if (wasPlaying) await playSide(next);
   }
 
-  useEffect(() => {
-    return () => {
-      URL.revokeObjectURL(referenceUrl);
-      URL.revokeObjectURL(currentUrl);
-    };
+  function updatePosition(side: Side) {
+    if (active !== side) return;
+    const next = alignedPosition(side);
+    setPosition(next);
+    if (next >= duration - 0.01) {
+      element(side)?.pause();
+      setPlaying(false);
+    }
+  }
+
+  useEffect(() => () => {
+    URL.revokeObjectURL(referenceUrl);
+    URL.revokeObjectURL(currentUrl);
   }, [referenceUrl, currentUrl]);
 
   useEffect(() => {
     const target = Math.min(result.reference.rms_dbfs, result.current.rms_dbfs);
-    if (referenceAudio.current) {
-      referenceAudio.current.volume = levelMatched
-        ? volumeFor(result.reference.rms_dbfs, target)
-        : 1;
-    }
-    if (currentAudio.current) {
-      currentAudio.current.volume = levelMatched
-        ? volumeFor(result.current.rms_dbfs, target)
-        : 1;
-    }
+    if (referenceAudio.current) referenceAudio.current.volume = levelMatched ? volumeFor(result.reference.rms_dbfs, target) : 1;
+    if (currentAudio.current) currentAudio.current.volume = levelMatched ? volumeFor(result.current.rms_dbfs, target) : 1;
   }, [levelMatched, result.reference.rms_dbfs, result.current.rms_dbfs]);
 
   useEffect(() => {
+    referenceAudio.current?.pause();
+    currentAudio.current?.pause();
     setActive("reference");
     setPlaying(false);
-    setBothTimes(0);
+    setPosition(0);
   }, [referenceUrl, currentUrl, offset]);
 
   return (
     <section className="ab-audition" aria-labelledby="ab-title">
       <div className="ab-heading">
-        <div>
-          <p className="eyebrow">A/B AUDITION / 聴き比べ</p>
-          <h2 id="ab-title">同じ位置で切り替えて確認</h2>
-          <p>位置合わせ結果を使い、再生位置を保ったまま参考音と自分の音を切り替えます。</p>
-        </div>
-        <label className="level-match-toggle">
-          <input
-            type="checkbox"
-            checked={levelMatched}
-            onChange={(event) => setLevelMatched(event.target.checked)}
-          />
-          音量を自動で揃える
-        </label>
+        <div><p className="eyebrow">A/B AUDITION / 聴き比べ</p><h2 id="ab-title">同じ位置で切り替えて確認</h2><p>位置合わせ結果を使い、再生位置を保ったまま参考音と自分の音を切り替えます。</p></div>
+        <label className="level-match-toggle"><input type="checkbox" checked={levelMatched} onChange={(event) => setLevelMatched(event.target.checked)} />音量を自動で揃える</label>
       </div>
-
-      <audio
-        ref={referenceAudio}
-        src={referenceUrl}
-        preload="metadata"
-        onTimeUpdate={() => {
-          if (active === "reference") setPosition(alignedPosition("reference"));
-        }}
-        onEnded={() => { setPlaying(false); setPosition(duration); }}
-      />
-      <audio
-        ref={currentAudio}
-        src={currentUrl}
-        preload="metadata"
-        onTimeUpdate={() => {
-          if (active === "current") setPosition(alignedPosition("current"));
-        }}
-        onEnded={() => { setPlaying(false); setPosition(duration); }}
-      />
-
+      <audio ref={referenceAudio} src={referenceUrl} preload="metadata" onTimeUpdate={() => updatePosition("reference")} onEnded={() => { setPlaying(false); setPosition(duration); }} />
+      <audio ref={currentAudio} src={currentUrl} preload="metadata" onTimeUpdate={() => updatePosition("current")} onEnded={() => { setPlaying(false); setPosition(duration); }} />
       <div className="ab-switch" role="group" aria-label="再生する音源">
-        <button
-          type="button"
-          className={active === "reference" ? "active" : ""}
-          aria-pressed={active === "reference"}
-          onClick={() => void switchSide("reference")}
-        >
-          A 参考音
-        </button>
-        <button
-          type="button"
-          className={active === "current" ? "active" : ""}
-          aria-pressed={active === "current"}
-          onClick={() => void switchSide("current")}
-        >
-          B 自分の音
-        </button>
+        <button type="button" className={active === "reference" ? "active" : ""} aria-pressed={active === "reference"} onClick={() => void switchSide("reference")}>A 参考音</button>
+        <button type="button" className={active === "current" ? "active" : ""} aria-pressed={active === "current"} onClick={() => void switchSide("current")}>B 自分の音</button>
       </div>
-
       <div className="ab-transport">
-        <button type="button" className="ab-play" onClick={() => void togglePlay()}>
-          {playing ? "一時停止" : "再生"}
-        </button>
-        <input
-          type="range"
-          min={0}
-          max={Math.max(duration, 0.1)}
-          step={0.01}
-          value={Math.min(position, duration)}
-          aria-label="再生位置"
-          onChange={(event) => setBothTimes(Number(event.target.value))}
-        />
+        <button type="button" className="ab-play" onClick={() => void togglePlay()}>{playing ? "一時停止" : "再生"}</button>
+        <input type="range" min={0} max={Math.max(duration, 0.1)} step={0.01} value={Math.min(position, duration)} aria-label="再生位置" onChange={(event) => setBothTimes(Number(event.target.value))} />
         <span>{formatTime(position)} / {formatTime(duration)}</span>
       </div>
     </section>
