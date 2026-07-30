@@ -38,3 +38,5 @@ def test_compare_endpoint() -> None:
     assert len(payload["visuals"]["spectrum"]["frequencies_hz"]) == 96
     brightness = next(item for item in payload["dimensions"] if item["key"] == "brightness")
     assert brightness["difference"] > 0
+    assert payload["adjustment_plan"]
+    assert payload["adjustment_plan"][0]["key"] == "brightness"
