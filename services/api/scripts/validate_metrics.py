@@ -44,6 +44,73 @@ def boost_treble(signal: np.ndarray, sample_rate: int, gain_db: float = 6.0) -> 
     return _match_rms(np.fft.irfft(spectrum * gain, n=signal.size), signal)
 
 
+def boost_body(
+    signal: np.ndarray,
+    sample_rate: int,
+    gain_db: float,
+    low_hz: float = 500.0,
+    high_hz: float = 1_200.0,
+) -> np.ndarray:
+    """Apply a broad low-mid boost while keeping overall RMS comparable."""
+    spectrum = np.fft.rfft(signal)
+    frequencies = np.fft.rfftfreq(signal.size, 1.0 / sample_rate)
+    target_gain = 10 ** (gain_db / 20.0)
+    gain = np.ones_like(frequencies)
+
+    low_start = low_hz / 2.0
+    high_end = high_hz * 1.5
+
+    transition_in = (frequencies > low_start) & (frequencies < low_hz)
+    gain[transition_in] = 1.0 + (target_gain - 1.0) * (
+        frequencies[transition_in] - low_start
+    ) / (low_hz - low_start)
+
+    plateau = (frequencies >= low_hz) & (frequencies <= high_hz)
+    gain[plateau] = target_gain
+
+    transition_out = (frequencies > high_hz) & (frequencies < high_end)
+    gain[transition_out] = target_gain - (target_gain - 1.0) * (
+        frequencies[transition_out] - high_hz
+    ) / (high_end - high_hz)
+
+    return _match_rms(np.fft.irfft(spectrum * gain, n=signal.size), signal)
+
+
+def enhance_transients(
+    signal: np.ndarray,
+    sample_rate: int,
+    gain_db: float,
+    window_ms: float = 15.0,
+) -> np.ndarray:
+    """Boost short regions after detected onsets to emulate a transient shaper."""
+    normalized = signal * (0.1 / max(_rms(signal), EPSILON))
+    onset_frames = librosa.onset.onset_detect(
+        y=normalized,
+        sr=sample_rate,
+        hop_length=512,
+        backtrack=True,
+        units="frames",
+    )
+    onset_samples = librosa.frames_to_samples(onset_frames, hop_length=512)
+
+    gain = np.ones(signal.size, dtype=np.float64)
+    peak_gain = 10 ** (gain_db / 20.0)
+    window_samples = max(1, int(sample_rate * window_ms / 1_000.0))
+    plateau_samples = max(1, window_samples // 2)
+
+    for onset_sample in onset_samples:
+        start = int(max(0, min(signal.size, onset_sample)))
+        end = min(signal.size, start + window_samples)
+        plateau_end = min(end, start + plateau_samples)
+
+        gain[start:plateau_end] = np.maximum(gain[start:plateau_end], peak_gain)
+        if plateau_end < end:
+            fade = np.linspace(peak_gain, 1.0, end - plateau_end)
+            gain[plateau_end:end] = np.maximum(gain[plateau_end:end], fade)
+
+    return _match_rms(signal * gain, signal)
+
+
 def compress_signal(
     signal: np.ndarray,
     sample_rate: int,
@@ -85,6 +152,10 @@ def generate_variants(signal: np.ndarray, sample_rate: int) -> dict[str, np.ndar
     return {
         "volume_minus_6db": change_volume(signal, -6.0),
         "treble_plus_6db": boost_treble(signal, sample_rate, 6.0),
+        "body_light": boost_body(signal, sample_rate, 1.5),
+        "body_strong": boost_body(signal, sample_rate, 3.0),
+        "attack_light": enhance_transients(signal, sample_rate, 3.0),
+        "attack_strong": enhance_transients(signal, sample_rate, 6.0),
         "compression_light": compress_signal(
             signal,
             sample_rate,
