@@ -35,6 +35,23 @@ class AlignmentInfo(BaseModel):
     warning: str | None = None
 
 
+class WaveformVisual(BaseModel):
+    duration_seconds: float
+    reference: list[float]
+    current: list[float]
+
+
+class SpectrumVisual(BaseModel):
+    frequencies_hz: list[float]
+    reference_db: list[float]
+    current_db: list[float]
+
+
+class ComparisonVisuals(BaseModel):
+    waveform: WaveformVisual
+    spectrum: SpectrumVisual
+
+
 class ToneDimension(BaseModel):
     key: Literal["brightness", "body", "attack", "compression", "roughness"]
     label: str
@@ -48,6 +65,7 @@ class CompareResponse(BaseModel):
     alignment: AlignmentInfo
     reference: AudioFeatures
     current: AudioFeatures
+    visuals: ComparisonVisuals
     dimensions: list[ToneDimension]
     summary: list[str]
     disclaimer: str
