@@ -173,6 +173,11 @@ def align_signals(
         best_score = 0.0
         best_lag_frames = 0
 
+    confidence = max(0.0, min(1.0, float(best_score)))
+    detected_lag_frames = best_lag_frames
+    if confidence < MATCH_WARNING_THRESHOLD:
+        best_lag_frames = 0
+
     offset_samples = best_lag_frames * ALIGNMENT_HOP_LENGTH
     if offset_samples >= 0:
         reference_start = 0
@@ -195,13 +200,13 @@ def align_signals(
         current_start : current_start + overlap_samples
     ].astype(np.float32, copy=False)
 
-    confidence = max(0.0, min(1.0, float(best_score)))
     warnings: list[str] = []
     if confidence < MATCH_WARNING_THRESHOLD:
         warnings.append(
-            "フレーズの一致度が低いため、同じフレーズを演奏しているか確認してください。"
+            "フレーズの一致度が低いため位置合わせを適用していません。"
+            "同じフレーズを演奏しているか確認してください。"
         )
-    if search_limit_frames > 0 and abs(best_lag_frames) >= search_limit_frames:
+    if search_limit_frames > 0 and abs(detected_lag_frames) >= search_limit_frames:
         warnings.append(
             f"開始位置のずれが探索上限の{max_shift_seconds:.0f}秒に達しました。"
         )
