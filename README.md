@@ -55,6 +55,24 @@ npm install
 npm run dev
 ```
 
+## 質感指標の検証
+
+元音源から音量変更、Treble強調、弱／強コンプレッション、弱／強サチュレーションを自動生成し、各質感軸の反応を一覧で確認できます。
+
+```bash
+cd services/api
+PYTHONPATH=. python scripts/validate_metrics.py path/to/source.wav
+```
+
+生成した検証音源も聴き比べる場合は、出力先を指定します。
+
+```bash
+PYTHONPATH=. python scripts/validate_metrics.py path/to/source.wav \
+  --output-dir validation-audio
+```
+
+詳細な特徴量をJSONで確認する場合は`--json`を付けます。検証用音源はリポジトリへコミットせず、ローカルで管理してください。
+
 ## 比較時の条件
 
 初期版は、以下の条件が近いほど結果の信頼性が上がります。
