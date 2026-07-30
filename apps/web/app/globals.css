@@ -124,6 +124,22 @@ h1 {
 }
 .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .summary-grid p { margin: 0; padding: 18px; background: var(--accent); color: #111; font-weight: 800; line-height: 1.55; }
+
+.adjustment-section { margin-top: 52px; }
+.compact-heading h2 { margin-bottom: 10px; font-size: clamp(30px, 4vw, 46px); }
+.compact-heading > p:last-child { margin: 0 0 22px; color: var(--muted); line-height: 1.7; }
+.adjustment-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.adjustment-card { display: flex; flex-direction: column; padding: 22px; border: 1px solid var(--accent); background: var(--panel-strong); }
+.adjustment-priority { margin-bottom: 18px; color: var(--accent); font-size: 11px; font-weight: 900; letter-spacing: .15em; }
+.adjustment-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.adjustment-heading p { margin: 0 0 7px; color: var(--muted); font-size: 12px; }
+.adjustment-heading h3 { margin: 0; font-size: 21px; line-height: 1.35; }
+.adjustment-heading strong { font-size: 28px; }
+.adjustment-card ol { margin: 22px 0; padding-left: 22px; line-height: 1.7; }
+.adjustment-card li + li { margin-top: 8px; }
+.adjustment-verify { margin: auto 0 0; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.65; }
+.adjustment-empty { padding: 22px; border: 1px solid var(--accent); background: var(--panel); line-height: 1.7; }
+
 .legend { display: flex; justify-content: space-between; margin: 34px 0 12px; color: var(--muted); font-size: 12px; }
 .dimension-grid { grid-template-columns: repeat(2, 1fr); }
 
@@ -161,6 +177,10 @@ h1 {
 .raw-data summary { cursor: pointer; }
 .raw-data pre { overflow: auto; color: var(--muted); font-size: 12px; }
 .disclaimer { margin-top: 18px; color: var(--muted); line-height: 1.7; font-size: 13px; }
+
+@media (max-width: 920px) {
+  .adjustment-grid { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 760px) {
   main { padding-top: 42px; }
