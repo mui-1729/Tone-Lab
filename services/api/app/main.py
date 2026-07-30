@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .alignment import load_and_align_files
 from .audio import analyze_signal, build_dimensions, build_summary
 from .models import CompareResponse
+from .quality import build_quality_info
 from .recommendations import build_adjustment_plan
 from .visuals import build_visuals
 
@@ -51,6 +52,8 @@ async def _save_upload(upload: UploadFile) -> Path:
             if size > MAX_FILE_BYTES:
                 raise HTTPException(status_code=413, detail="ファイルサイズは25MB以下にしてください。")
             temp.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=422, detail="空のファイルは解析できません。")
     except Exception:
         path.unlink(missing_ok=True)
         raise
@@ -86,10 +89,17 @@ async def compare(
             sample_rate,
             current.filename or "current",
         )
+        quality = build_quality_info(
+            aligned_reference,
+            aligned_current,
+            reference_features,
+            current_features,
+        )
         visuals = build_visuals(aligned_reference, aligned_current, sample_rate)
         dimensions = build_dimensions(reference_features, current_features)
         return CompareResponse(
             alignment=alignment,
+            quality=quality,
             reference=reference_features,
             current=current_features,
             visuals=visuals,
