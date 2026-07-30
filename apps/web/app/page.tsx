@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { compareAudio } from "@/lib/api";
 import type {
+  AdjustmentStep,
   AlignmentInfo,
   CompareResponse,
   ComparisonVisuals,
@@ -83,6 +84,42 @@ function AlignmentStatus({ alignment }: { alignment: AlignmentInfo }) {
       {alignment.warning ? (
         <p className="alignment-warning" role="alert">{alignment.warning}</p>
       ) : null}
+    </section>
+  );
+}
+
+function AdjustmentPlanSection({ steps }: { steps: AdjustmentStep[] }) {
+  return (
+    <section className="adjustment-section" aria-labelledby="adjustment-title">
+      <div className="section-heading compact-heading">
+        <p className="eyebrow">NEXT MOVES / 次に触るところ</p>
+        <h2 id="adjustment-title">優先調整プラン</h2>
+        <p>上から1項目ずつ変更し、毎回もう一度比較します。</p>
+      </div>
+      {steps.length ? (
+        <div className="adjustment-grid">
+          {steps.map((step, index) => (
+            <article className="adjustment-card" key={step.key}>
+              <div className="adjustment-priority">PRIORITY {index + 1}</div>
+              <div className="adjustment-heading">
+                <div>
+                  <p>{step.label} / 差 {Math.abs(step.difference).toFixed(0)}</p>
+                  <h3>{step.title}</h3>
+                </div>
+                <strong>{step.difference > 0 ? "+" : ""}{step.difference.toFixed(0)}</strong>
+              </div>
+              <ol>
+                {step.actions.map((action) => <li key={action}>{action}</li>)}
+              </ol>
+              <p className="adjustment-verify">{step.verify}</p>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="adjustment-empty">
+          5つの質感軸では大きな調整は不要です。音量を揃えてA/Bし、耳で最終確認してください。
+        </div>
+      )}
     </section>
   );
 }
@@ -284,6 +321,7 @@ export default function Home() {
           <div className="summary-grid">
             {result.summary.map((item) => <p key={item}>{item}</p>)}
           </div>
+          <AdjustmentPlanSection steps={result.adjustment_plan} />
           <div className="legend">
             <span>− 参考音が強い</span>
             <span>0 近い</span>

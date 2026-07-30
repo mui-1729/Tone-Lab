@@ -1,3 +1,5 @@
+export type ToneKey = "brightness" | "body" | "attack" | "compression" | "roughness";
+
 export type BandEnergy = {
   low: number;
   low_mid: number;
@@ -48,12 +50,21 @@ export type ComparisonVisuals = {
 };
 
 export type ToneDimension = {
-  key: "brightness" | "body" | "attack" | "compression" | "roughness";
+  key: ToneKey;
   label: string;
   difference: number;
   interpretation: string;
   evidence: string[];
   suggestion: string;
+};
+
+export type AdjustmentStep = {
+  key: ToneKey;
+  label: string;
+  difference: number;
+  title: string;
+  actions: string[];
+  verify: string;
 };
 
 export type CompareResponse = {
@@ -62,6 +73,7 @@ export type CompareResponse = {
   current: AudioFeatures;
   visuals: ComparisonVisuals;
   dimensions: ToneDimension[];
+  adjustment_plan: AdjustmentStep[];
   summary: string[];
   disclaimer: string;
 };

@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .alignment import load_and_align_files
 from .audio import analyze_signal, build_dimensions, build_summary
 from .models import CompareResponse
+from .recommendations import build_adjustment_plan
 from .visuals import build_visuals
 
 MAX_FILE_BYTES = 25 * 1024 * 1024
@@ -93,6 +94,7 @@ async def compare(
             current=current_features,
             visuals=visuals,
             dimensions=dimensions,
+            adjustment_plan=build_adjustment_plan(dimensions),
             summary=build_summary(dimensions),
             disclaimer=(
                 "この結果は物理特徴から作った初期ルールによる相対評価です。"
