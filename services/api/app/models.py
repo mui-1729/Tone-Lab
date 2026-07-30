@@ -3,6 +3,9 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+ToneKey = Literal["brightness", "body", "attack", "compression", "roughness"]
+
+
 class BandEnergy(BaseModel):
     low: float
     low_mid: float
@@ -53,12 +56,21 @@ class ComparisonVisuals(BaseModel):
 
 
 class ToneDimension(BaseModel):
-    key: Literal["brightness", "body", "attack", "compression", "roughness"]
+    key: ToneKey
     label: str
     difference: float = Field(ge=-100, le=100)
     interpretation: str
     evidence: list[str]
     suggestion: str
+
+
+class AdjustmentStep(BaseModel):
+    key: ToneKey
+    label: str
+    difference: float = Field(ge=-100, le=100)
+    title: str
+    actions: list[str]
+    verify: str
 
 
 class CompareResponse(BaseModel):
@@ -67,5 +79,6 @@ class CompareResponse(BaseModel):
     current: AudioFeatures
     visuals: ComparisonVisuals
     dimensions: list[ToneDimension]
+    adjustment_plan: list[AdjustmentStep]
     summary: list[str]
     disclaimer: str
