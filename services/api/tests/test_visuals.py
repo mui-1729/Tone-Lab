@@ -60,6 +60,7 @@ def test_treble_boost_is_visible_above_four_kilohertz() -> None:
         index
         for index, frequency in enumerate(visuals.spectrum.frequencies_hz)
         if frequency >= 4_000
+        and visuals.spectrum.reference_db[index] > SPECTRUM_FLOOR_DB + 5
     ]
     low_indices = [
         index
@@ -67,6 +68,7 @@ def test_treble_boost_is_visible_above_four_kilohertz() -> None:
         if frequency <= 500
     ]
 
+    assert high_indices
     high_difference = np.mean(
         [
             visuals.spectrum.current_db[index]
