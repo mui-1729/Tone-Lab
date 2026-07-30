@@ -1,7 +1,11 @@
 import numpy as np
 
 from app.audio import analyze_signal, build_dimensions
-from scripts.validate_metrics import compress_signal, saturate_signal
+from scripts.validate_metrics import (
+    compress_signal,
+    generate_variants,
+    saturate_signal,
+)
 
 
 def guitar_like(seconds: float = 2.0, sample_rate: int = 44_100) -> np.ndarray:
@@ -9,7 +13,8 @@ def guitar_like(seconds: float = 2.0, sample_rate: int = 44_100) -> np.ndarray:
     envelope = np.minimum(time / 0.02, 1.0) * np.exp(-time / 1.8)
     signal = np.zeros_like(time)
 
-    for harmonic, amplitude in ((1, 0.22), (2, 0.12), (3, 0.08), (5, 0.05), (8, 0.03), (16, 0.015)):
+    harmonics = ((1, 0.22), (2, 0.12), (3, 0.08), (5, 0.05), (8, 0.03), (16, 0.015))
+    for harmonic, amplitude in harmonics:
         signal += amplitude * envelope * np.sin(2 * np.pi * 220 * harmonic * time)
 
     return signal.astype(np.float32)
@@ -55,3 +60,11 @@ def test_stronger_saturation_increases_roughness_dimension() -> None:
     assert light_dimensions["roughness"] > 20
     assert strong_dimensions["roughness"] > light_dimensions["roughness"] + 15
     assert strong_dimensions["compression"] > light_dimensions["compression"]
+
+
+def test_generated_variants_keep_safe_peak_headroom() -> None:
+    signal = guitar_like()
+    signal *= 0.99 / np.max(np.abs(signal))
+
+    for variant in generate_variants(signal, 44_100).values():
+        assert np.max(np.abs(variant)) <= 0.990001
