@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 from pathlib import Path
+from typing import Any
 
 import librosa
 import numpy as np
@@ -19,7 +20,11 @@ def _rms(signal: np.ndarray) -> float:
 
 
 def _match_rms(signal: np.ndarray, reference: np.ndarray) -> np.ndarray:
-    return (signal * (_rms(reference) / max(_rms(signal), EPSILON))).astype(np.float32)
+    matched = signal * (_rms(reference) / max(_rms(signal), EPSILON))
+    peak = float(np.max(np.abs(matched)))
+    if peak > 0.99:
+        matched *= 0.99 / peak
+    return matched.astype(np.float32)
 
 
 def change_volume(signal: np.ndarray, db: float) -> np.ndarray:
@@ -101,7 +106,7 @@ def generate_variants(signal: np.ndarray, sample_rate: int) -> dict[str, np.ndar
     }
 
 
-def analyze_variants(input_path: Path, output_dir: Path | None = None) -> dict[str, object]:
+def analyze_variants(input_path: Path, output_dir: Path | None = None) -> dict[str, Any]:
     signal, sample_rate = librosa.load(
         input_path,
         sr=TARGET_SAMPLE_RATE,
@@ -110,7 +115,7 @@ def analyze_variants(input_path: Path, output_dir: Path | None = None) -> dict[s
     )
     signal = signal.astype(np.float32)
     reference = analyze_signal(signal, sample_rate, input_path.name)
-    results: dict[str, object] = {
+    results: dict[str, Any] = {
         "reference": reference.model_dump(),
         "variants": {},
     }
@@ -126,12 +131,12 @@ def analyze_variants(input_path: Path, output_dir: Path | None = None) -> dict[s
             "dimensions": {item.key: item.difference for item in dimensions},
         }
         if output_dir is not None:
-            sf.write(output_dir / f"{name}.wav", variant, sample_rate)
+            sf.write(output_dir / f"{name}.wav", variant, sample_rate, subtype="PCM_24")
 
     return results
 
 
-def _markdown(results: dict[str, object]) -> str:
+def _markdown(results: dict[str, Any]) -> str:
     rows = [
         "| Variant | Brightness | Body | Attack | Compression | Roughness |",
         "|---|---:|---:|---:|---:|---:|",
@@ -150,7 +155,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Generate repeatable Tone Lab metric checks.")
     parser.add_argument("input", type=Path, help="Source WAV/MP3/FLAC/OGG file")
     parser.add_argument("--output-dir", type=Path, help="Write generated WAV variants")
-    parser.add_argument("--json", action="store_true", help="Print full JSON instead of a Markdown table")
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="Print full JSON instead of a Markdown table",
+    )
     args = parser.parse_args()
 
     results = analyze_variants(args.input, args.output_dir)
