@@ -53,6 +53,15 @@ def test_visuals_have_fixed_finite_ranges() -> None:
     )
 
 
+def test_volume_change_keeps_spectrum_shape_but_changes_envelope() -> None:
+    signal = guitar_like()
+    visuals = build_visuals(signal, signal * 0.5, SAMPLE_RATE)
+
+    assert visuals.spectrum.reference_db == visuals.spectrum.current_db
+    assert max(visuals.waveform.reference) == 1
+    assert 0.49 <= max(visuals.waveform.current) <= 0.51
+
+
 def test_treble_boost_is_visible_above_four_kilohertz() -> None:
     signal = guitar_like()
     visuals = build_visuals(signal, boost_treble(signal), SAMPLE_RATE)
