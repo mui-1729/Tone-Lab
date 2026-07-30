@@ -32,6 +32,17 @@ export type AlignmentInfo = {
   warning: string | null;
 };
 
+export type SourceQuality = {
+  clipped_sample_percent: number;
+  warnings: string[];
+};
+
+export type QualityInfo = {
+  reference: SourceQuality;
+  current: SourceQuality;
+  comparison_warnings: string[];
+};
+
 export type WaveformVisual = {
   duration_seconds: number;
   reference: number[];
@@ -69,6 +80,7 @@ export type AdjustmentStep = {
 
 export type CompareResponse = {
   alignment: AlignmentInfo;
+  quality: QualityInfo;
   reference: AudioFeatures;
   current: AudioFeatures;
   visuals: ComparisonVisuals;

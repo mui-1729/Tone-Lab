@@ -38,6 +38,17 @@ class AlignmentInfo(BaseModel):
     warning: str | None = None
 
 
+class SourceQuality(BaseModel):
+    clipped_sample_percent: float = Field(ge=0, le=100)
+    warnings: list[str]
+
+
+class QualityInfo(BaseModel):
+    reference: SourceQuality
+    current: SourceQuality
+    comparison_warnings: list[str]
+
+
 class WaveformVisual(BaseModel):
     duration_seconds: float
     reference: list[float]
@@ -75,6 +86,7 @@ class AdjustmentStep(BaseModel):
 
 class CompareResponse(BaseModel):
     alignment: AlignmentInfo
+    quality: QualityInfo
     reference: AudioFeatures
     current: AudioFeatures
     visuals: ComparisonVisuals
