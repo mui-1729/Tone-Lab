@@ -34,5 +34,7 @@ def test_compare_endpoint() -> None:
     payload = response.json()
     assert 0 <= payload["alignment"]["confidence"] <= 1
     assert payload["alignment"]["overlap_seconds"] >= 0.5
+    assert len(payload["visuals"]["waveform"]["reference"]) == 240
+    assert len(payload["visuals"]["spectrum"]["frequencies_hz"]) == 96
     brightness = next(item for item in payload["dimensions"] if item["key"] == "brightness")
     assert brightness["difference"] > 0
