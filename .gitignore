@@ -1,0 +1,32 @@
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Audio / generated data
+uploads/
+artifacts/
+*.wav
+*.mp3
+*.flac
+*.ogg
+*.m4a
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,28 @@
+name: Bug report
+description: 不具合の報告
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: actual
+    attributes:
+      label: 発生したこと
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待した動作
+    validations:
+      required: true
+  - type: input
+    id: audio
+    attributes:
+      label: 使用した音源形式
+      placeholder: WAV 44.1kHz / 24bit

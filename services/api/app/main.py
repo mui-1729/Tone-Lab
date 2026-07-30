@@ -1,0 +1,91 @@
+from __future__ import annotations
+
+import os
+import tempfile
+from pathlib import Path
+
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+
+from .audio import analyze_file, build_dimensions, build_summary
+from .models import CompareResponse
+
+MAX_FILE_BYTES = 25 * 1024 * 1024
+ALLOWED_SUFFIXES = {".wav", ".mp3", ".flac", ".ogg"}
+
+app = FastAPI(title="Tone Lab API", version="0.1.0")
+
+origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+async def _save_upload(upload: UploadFile) -> Path:
+    suffix = Path(upload.filename or "").suffix.lower()
+    if suffix not in ALLOWED_SUFFIXES:
+        raise HTTPException(status_code=415, detail="WAV、MP3、FLAC、OGG形式を使用してください。")
+
+    size = 0
+    temp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    path = Path(temp.name)
+    try:
+        while chunk := await upload.read(1024 * 1024):
+            size += len(chunk)
+            if size > MAX_FILE_BYTES:
+                raise HTTPException(status_code=413, detail="ファイルサイズは25MB以下にしてください。")
+            temp.write(chunk)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    finally:
+        temp.close()
+        await upload.close()
+    return path
+
+
+@app.post("/api/v1/compare", response_model=CompareResponse)
+async def compare(
+    reference: UploadFile = File(...),
+    current: UploadFile = File(...),
+) -> CompareResponse:
+    reference_path: Path | None = None
+    current_path: Path | None = None
+    try:
+        reference_path = await _save_upload(reference)
+        current_path = await _save_upload(current)
+        reference_features = analyze_file(reference_path, reference.filename or "reference")
+        current_features = analyze_file(current_path, current.filename or "current")
+        dimensions = build_dimensions(reference_features, current_features)
+        return CompareResponse(
+            reference=reference_features,
+            current=current_features,
+            dimensions=dimensions,
+            summary=build_summary(dimensions),
+            disclaimer=(
+                "この結果は物理特徴から作った初期ルールによる相対評価です。"
+                "同じフレーズ・近い録音条件で使用し、唯一の正解設定としてではなく調整方向として扱ってください。"
+            ),
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    finally:
+        if reference_path:
+            reference_path.unlink(missing_ok=True)
+        if current_path:
+            current_path.unlink(missing_ok=True)
