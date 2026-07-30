@@ -7,7 +7,8 @@ from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from .audio import analyze_file, build_dimensions, build_summary
+from .alignment import load_and_align_files
+from .audio import analyze_signal, build_dimensions, build_summary
 from .models import CompareResponse
 
 MAX_FILE_BYTES = 25 * 1024 * 1024
@@ -67,10 +68,25 @@ async def compare(
     try:
         reference_path = await _save_upload(reference)
         current_path = await _save_upload(current)
-        reference_features = analyze_file(reference_path, reference.filename or "reference")
-        current_features = analyze_file(current_path, current.filename or "current")
+        (
+            aligned_reference,
+            aligned_current,
+            sample_rate,
+            alignment,
+        ) = load_and_align_files(reference_path, current_path)
+        reference_features = analyze_signal(
+            aligned_reference,
+            sample_rate,
+            reference.filename or "reference",
+        )
+        current_features = analyze_signal(
+            aligned_current,
+            sample_rate,
+            current.filename or "current",
+        )
         dimensions = build_dimensions(reference_features, current_features)
         return CompareResponse(
+            alignment=alignment,
             reference=reference_features,
             current=current_features,
             dimensions=dimensions,
