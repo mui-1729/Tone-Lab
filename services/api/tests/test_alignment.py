@@ -122,5 +122,7 @@ def test_unrelated_audio_returns_low_match_warning() -> None:
     _, _, alignment = align_signals(reference, current, SAMPLE_RATE)
 
     assert alignment.confidence < MATCH_WARNING_THRESHOLD
+    assert alignment.offset_seconds == 0
     assert alignment.warning is not None
+    assert "適用していません" in alignment.warning
     assert "同じフレーズ" in alignment.warning
