@@ -49,9 +49,82 @@ jobs:
         run: npm run build
 
   docker:
-    name: Docker Compose build
+    name: Docker runtime smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build containers
-        run: docker compose build
+      - name: Build and start containers
+        run: docker compose up --build --detach
+      - name: Wait for API and Web
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            if curl --fail --silent http://localhost:8000/health >/tmp/health.json \
+              && curl --fail --silent http://localhost:3000 >/tmp/web.html; then
+              break
+            fi
+            if [ "$attempt" -eq 60 ]; then
+              docker compose ps
+              docker compose logs
+              exit 1
+            fi
+            sleep 2
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          assert json.loads(Path('/tmp/health.json').read_text()) == {'status': 'ok'}
+          assert 'TONE LAB' in Path('/tmp/web.html').read_text()
+          PY
+      - name: Generate smoke-test audio
+        run: |
+          python - <<'PY'
+          import math
+          import struct
+          import wave
+
+          sample_rate = 44_100
+          duration = 1.5
+          for path, frequency in (('/tmp/reference.wav', 220), ('/tmp/current.wav', 1_760)):
+              with wave.open(path, 'wb') as output:
+                  output.setnchannels(1)
+                  output.setsampwidth(2)
+                  output.setframerate(sample_rate)
+                  samples = []
+                  for index in range(int(sample_rate * duration)):
+                      envelope = min(index / (sample_rate * 0.02), 1.0) * math.exp(-index / (sample_rate * 1.4))
+                      value = 0.25 * envelope * math.sin(2 * math.pi * frequency * index / sample_rate)
+                      samples.append(struct.pack('<h', int(max(-1, min(1, value)) * 32767)))
+                  output.writeframes(b''.join(samples))
+          PY
+      - name: Run end-to-end comparison
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 120 \
+            -F reference=@/tmp/reference.wav \
+            -F current=@/tmp/current.wav \
+            http://localhost:8000/api/v1/compare > /tmp/result.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path('/tmp/result.json').read_text())
+          assert payload['alignment']['overlap_seconds'] >= 0.5
+          assert len(payload['dimensions']) == 5
+          assert len(payload['visuals']['waveform']['reference']) == 240
+          assert len(payload['visuals']['spectrum']['frequencies_hz']) == 96
+          assert payload['adjustment_plan']
+          assert payload['quality']['reference']['warnings'] == []
+          assert payload['quality']['current']['warnings'] == []
+          brightness = next(item for item in payload['dimensions'] if item['key'] == 'brightness')
+          assert brightness['difference'] > 0
+          PY
+      - name: Show container logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Stop containers
+        if: always()
+        run: docker compose down --volumes
