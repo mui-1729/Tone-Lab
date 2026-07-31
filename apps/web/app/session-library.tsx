@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { EvaluationDashboard } from "@/app/evaluation-dashboard";
+import { LiveSessionPanel } from "@/app/live-session-panel";
 import type { SessionSummary, ToneSession } from "@/lib/session";
 import {
   clearSessions,
@@ -172,6 +173,7 @@ export function SessionLibrary({
           {summaries.length ? <button type="button" className="library-clear" onClick={() => void removeAll()}>すべて削除</button> : null}
         </div>
       </section>
+      <LiveSessionPanel sessionId={activeSessionId} revision={revision} onSessionUpdated={onLoad} />
       <EvaluationDashboard />
     </>
   );
