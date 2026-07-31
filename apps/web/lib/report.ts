@@ -10,7 +10,7 @@ export function reportPayload(result: CompareResponse, files: ReportFiles) {
   return {
     schema_version: 2,
     exported_at: new Date().toISOString(),
-    app: "Tone Lab MVP 1.1",
+    app: "Tone Lab 2.0.0",
     files: { reference: files.reference, current: files.current },
     reference_selection: files.reference_selection ?? null,
     alignment: result.alignment,
@@ -29,7 +29,7 @@ export function reportPayload(result: CompareResponse, files: ReportFiles) {
 export function reportMarkdown(result: CompareResponse, files: ReportFiles) {
   const payload = reportPayload(result, files);
   const lines = [
-    "# Tone Lab MVP 1.1 比較レポート",
+    "# Tone Lab 2.0 比較レポート",
     "",
     `- 出力日時: ${payload.exported_at}`,
     `- 参考音: ${files.reference}`,
