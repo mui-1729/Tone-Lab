@@ -77,7 +77,7 @@ export function sessionPayload(session: ToneSession) {
   return {
     schema_version: 2,
     exported_at: new Date().toISOString(),
-    app: "Tone Lab MVP 1.2",
+    app: "Tone Lab 2.0.0",
     session: {
       id: session.id,
       name: session.name,
@@ -103,7 +103,7 @@ export function sessionPayload(session: ToneSession) {
 export function sessionMarkdown(session: ToneSession) {
   const aggregate = aggregateToneResults(session.takes.map((take) => take.result));
   const lines = [
-    `# Tone Lab 調整セッション: ${session.name}`,
+    `# Tone Lab 2.0 調整セッション: ${session.name}`,
     "",
     `- 参考音: ${session.reference_file.name}`,
     `- 作成日時: ${session.created_at}`,
