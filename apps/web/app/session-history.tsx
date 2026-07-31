@@ -1,5 +1,7 @@
 "use client";
 
+import { aggregateToneResults } from "@/lib/aggregate";
+import type { ConfidenceLevel } from "@/lib/aggregate";
 import type { ToneSession } from "@/lib/session";
 import { sessionMarkdown, sessionPayload, toneDistance } from "@/lib/session";
 
@@ -33,6 +35,10 @@ function changeLabel(kind: ChangeKind) {
   return { start: "開始", improved: "改善", maintained: "維持", worsened: "悪化" }[kind];
 }
 
+function confidenceLabel(level: ConfidenceLevel) {
+  return { high: "高", medium: "中", low: "低" }[level];
+}
+
 function distanceLabel(current: number, previous: number | null) {
   if (previous === null) return "最初のテイク";
   const delta = current - previous;
@@ -61,6 +67,7 @@ export function SessionHistory({
   const touchKeys = new Set(latest.result.adjustment_plan.map((step) => step.key));
   const maintain = latest.result.dimensions.filter((dimension) => Math.abs(dimension.difference) < 8);
   const watch = latest.result.dimensions.filter((dimension) => Math.abs(dimension.difference) >= 8 && !touchKeys.has(dimension.key));
+  const aggregate = aggregateToneResults(session.takes.map((take) => take.result));
   const stem = `tone-lab-session_${safeStem(session.name)}`;
 
   return (
@@ -85,36 +92,43 @@ export function SessionHistory({
         </div>
         <div className="session-primary-status">
           <strong>{latestDistance.toFixed(1)}</strong>
-          <span>参考との差の大きさ</span>
+          <span>最新テイクの差</span>
           <small>{distanceLabel(latestDistance, previousDistance)}</small>
         </div>
       </div>
 
       <div className="session-focus-grid">
-        <article>
-          <span>今回触る</span>
-          <strong>{latest.result.adjustment_plan.map((step) => step.label).join("・") || "なし"}</strong>
-        </article>
-        <article>
-          <span>維持する</span>
-          <strong>{maintain.map((dimension) => dimension.label).join("・") || "なし"}</strong>
-        </article>
-        <article>
-          <span>様子を見る</span>
-          <strong>{watch.map((dimension) => dimension.label).join("・") || "なし"}</strong>
-        </article>
+        <article><span>今回触る</span><strong>{latest.result.adjustment_plan.map((step) => step.label).join("・") || "なし"}</strong></article>
+        <article><span>維持する</span><strong>{maintain.map((dimension) => dimension.label).join("・") || "なし"}</strong></article>
+        <article><span>様子を見る</span><strong>{watch.map((dimension) => dimension.label).join("・") || "なし"}</strong></article>
       </div>
+
+      <section className="aggregate-section" aria-labelledby="aggregate-title">
+        <div className="aggregate-heading">
+          <div>
+            <p className="eyebrow">STABLE RESULT / 統合判定</p>
+            <h3 id="aggregate-title">直近{aggregate.used_take_count}テイクの代表値</h3>
+            <p>最大3テイクの中央値を使い、1回だけの強いピッキングや演奏ミスの影響を抑えます。</p>
+          </div>
+          <div className="aggregate-distance"><strong>{aggregate.representative_distance.toFixed(1)}</strong><span>代表的な差</span></div>
+        </div>
+        <div className="aggregate-grid">
+          {aggregate.axes.map((axis) => (
+            <article key={axis.key} className={`confidence-${axis.confidence}`}>
+              <div><span>{axis.label}</span><strong>{axis.median_difference > 0 ? "+" : ""}{axis.median_difference.toFixed(0)}</strong></div>
+              <p>信頼度 {confidenceLabel(axis.confidence)}・{axis.confidence_score.toFixed(0)}%</p>
+              <div className="confidence-meter" aria-label={`${axis.label}の信頼度 ${axis.confidence_score.toFixed(0)}%`}><span style={{ width: `${axis.confidence_score}%` }} /></div>
+              <small>ばらつき ±{axis.median_absolute_deviation.toFixed(1)} / 方向一致 {(axis.direction_agreement * 100).toFixed(0)}%</small>
+              <p className="confidence-reason">{axis.reason}</p>
+            </article>
+          ))}
+        </div>
+        {aggregate.used_take_count < 3 ? <p className="aggregate-advice">あと{3 - aggregate.used_take_count}テイク録ると、演奏差を含めた信頼度をより安定して判断できます。</p> : null}
+      </section>
 
       <div className="session-table-wrap">
         <table className="session-table">
-          <thead>
-            <tr>
-              <th>テイク</th>
-              <th>差の大きさ</th>
-              {latest.result.dimensions.map((dimension) => <th key={dimension.key}>{dimension.label}</th>)}
-              <th>変更メモ</th>
-            </tr>
-          </thead>
+          <thead><tr><th>テイク</th><th>差の大きさ</th>{latest.result.dimensions.map((dimension) => <th key={dimension.key}>{dimension.label}</th>)}<th>変更メモ</th></tr></thead>
           <tbody>
             {session.takes.map((take, index) => {
               const distance = toneDistance(take.result);
@@ -139,25 +153,13 @@ export function SessionHistory({
       <div className="latest-change-grid">
         {latest.result.dimensions.map((dimension) => {
           const kind = changeKind(dimension.difference, previousByKey.get(dimension.key)?.difference ?? null);
-          return (
-            <article key={dimension.key} className={`trend-${kind}`}>
-              <span>{dimension.label}</span>
-              <strong>{dimension.difference > 0 ? "+" : ""}{dimension.difference.toFixed(0)}</strong>
-              <small>{changeLabel(kind)}</small>
-            </article>
-          );
+          return <article key={dimension.key} className={`trend-${kind}`}><span>{dimension.label}</span><strong>{dimension.difference > 0 ? "+" : ""}{dimension.difference.toFixed(0)}</strong><small>{changeLabel(kind)}</small></article>;
         })}
       </div>
 
       <label className="take-note">
         最新テイクで変更したこと
-        <textarea
-          key={latest.id}
-          defaultValue={latest.note}
-          maxLength={500}
-          placeholder="例: 高域を少し下げた、入力レベルを揃えた"
-          onBlur={(event) => onUpdateNote(latest.id, event.target.value.trim())}
-        />
+        <textarea key={latest.id} defaultValue={latest.note} maxLength={500} placeholder="例: 高域を少し下げた、入力レベルを揃えた" onBlur={(event) => onUpdateNote(latest.id, event.target.value.trim())} />
       </label>
 
       <div className="session-actions">
@@ -166,7 +168,7 @@ export function SessionHistory({
         <button type="button" onClick={() => download(`${stem}.json`, JSON.stringify(sessionPayload(session), null, 2), "application/json;charset=utf-8")}>履歴JSON</button>
       </div>
 
-      <p className="session-note">この値は音質点ではなく、5軸それぞれの参考音との差の絶対値を合計したものです。小さいほど今回の5軸では近いことを表します。</p>
+      <p className="session-note">差の値は音質点ではなく、5軸の参考音との差です。統合判定は直近最大3テイクの中央値であり、信頼度は位置一致・入力品質・テイク間ばらつき・方向一致から算出します。</p>
     </section>
   );
 }
