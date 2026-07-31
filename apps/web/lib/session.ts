@@ -1,3 +1,4 @@
+import { aggregateToneResults } from "@/lib/aggregate";
 import type { AudioSelection, CompareResponse, ToneKey } from "@/lib/types";
 
 export type BlindTrial = {
@@ -72,10 +73,11 @@ export function updateSessionTakeNote(session: ToneSession, takeId: string, note
 }
 
 export function sessionPayload(session: ToneSession) {
+  const aggregate = aggregateToneResults(session.takes.map((take) => take.result));
   return {
-    schema_version: 1,
+    schema_version: 2,
     exported_at: new Date().toISOString(),
-    app: "Tone Lab MVP 1.1",
+    app: "Tone Lab MVP 1.2",
     session: {
       id: session.id,
       name: session.name,
@@ -83,6 +85,7 @@ export function sessionPayload(session: ToneSession) {
       updated_at: session.updated_at,
       reference_file: session.reference_file.name,
       reference_selection: session.reference_selection,
+      aggregate,
       takes: session.takes.map((take, index) => ({
         index: index + 1,
         id: take.id,
@@ -98,6 +101,7 @@ export function sessionPayload(session: ToneSession) {
 }
 
 export function sessionMarkdown(session: ToneSession) {
+  const aggregate = aggregateToneResults(session.takes.map((take) => take.result));
   const lines = [
     `# Tone Lab 調整セッション: ${session.name}`,
     "",
@@ -107,6 +111,11 @@ export function sessionMarkdown(session: ToneSession) {
   ];
   if (session.reference_selection) {
     lines.push(`- 参考区間: ${session.reference_selection.start_seconds.toFixed(2)}〜${session.reference_selection.end_seconds.toFixed(2)}秒`);
+  }
+  lines.push("", `## 統合判定（直近${aggregate.used_take_count}テイク）`, "");
+  lines.push(`- 代表的な参考との差: ${aggregate.representative_distance.toFixed(1)}`);
+  for (const axis of aggregate.axes) {
+    lines.push(`- ${axis.label}: ${axis.median_difference > 0 ? "+" : ""}${axis.median_difference.toFixed(0)} / 信頼度 ${axis.confidence_score.toFixed(0)}% / ばらつき ${axis.median_absolute_deviation.toFixed(1)}`);
   }
   lines.push("", "## テイク履歴", "");
   session.takes.forEach((take, index) => {
