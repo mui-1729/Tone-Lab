@@ -1,16 +1,18 @@
-import type { CompareResponse } from "@/lib/types";
+import type { AudioSelection, CompareResponse } from "@/lib/types";
 
 export type ReportFiles = {
   reference: string;
   current: string;
+  reference_selection?: AudioSelection | null;
 };
 
 export function reportPayload(result: CompareResponse, files: ReportFiles) {
   return {
-    schema_version: 1,
+    schema_version: 2,
     exported_at: new Date().toISOString(),
-    app: "Tone Lab MVP 1.0",
-    files,
+    app: "Tone Lab MVP 1.1",
+    files: { reference: files.reference, current: files.current },
+    reference_selection: files.reference_selection ?? null,
     alignment: result.alignment,
     quality: result.quality,
     summary: result.summary,
@@ -27,11 +29,16 @@ export function reportPayload(result: CompareResponse, files: ReportFiles) {
 export function reportMarkdown(result: CompareResponse, files: ReportFiles) {
   const payload = reportPayload(result, files);
   const lines = [
-    "# Tone Lab MVP 1.0 比較レポート",
+    "# Tone Lab MVP 1.1 比較レポート",
     "",
     `- 出力日時: ${payload.exported_at}`,
     `- 参考音: ${files.reference}`,
     `- 自分の音: ${files.current}`,
+  ];
+  if (files.reference_selection) {
+    lines.push(`- 参考音の選択区間: ${files.reference_selection.start_seconds.toFixed(2)}〜${files.reference_selection.end_seconds.toFixed(2)}秒`);
+  }
+  lines.push(
     `- 位置補正: ${result.alignment.offset_seconds.toFixed(3)}秒`,
     `- 一致度: ${(result.alignment.confidence * 100).toFixed(0)}%`,
     `- 比較区間: ${result.alignment.overlap_seconds.toFixed(2)}秒`,
@@ -42,7 +49,7 @@ export function reportMarkdown(result: CompareResponse, files: ReportFiles) {
     "",
     "## 優先調整プラン",
     "",
-  ];
+  );
 
   if (result.adjustment_plan.length) {
     result.adjustment_plan.forEach((step, index) => {

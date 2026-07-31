@@ -1,6 +1,6 @@
 "use client";
 
-import type { CompareResponse } from "@/lib/types";
+import type { AudioSelection, CompareResponse } from "@/lib/types";
 import { reportMarkdown, reportPayload } from "@/lib/report";
 
 function download(filename: string, content: string, type: string) {
@@ -23,14 +23,16 @@ export function ResultActions({
   result,
   referenceName,
   currentName,
+  referenceSelection,
   onReset,
 }: {
   result: CompareResponse;
   referenceName: string;
   currentName: string;
+  referenceSelection?: AudioSelection | null;
   onReset: () => void;
 }) {
-  const files = { reference: referenceName, current: currentName };
+  const files = { reference: referenceName, current: currentName, reference_selection: referenceSelection };
   const stem = `tone-lab_${safeStem(referenceName)}_vs_${safeStem(currentName)}`;
 
   return (

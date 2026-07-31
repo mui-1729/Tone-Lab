@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audioBufferToWavFile } from "@/lib/wav";
 
 const ACCEPT = ".wav,.mp3,.flac,.ogg,audio/wav,audio/mpeg,audio/flac,audio/ogg";
-const MAX_RECORDING_SECONDS = 30;
 
 type InputMode = "file" | "record";
 type RecorderStatus = "idle" | "preparing" | "ready" | "countdown" | "recording" | "processing";
@@ -24,12 +23,15 @@ export function AudioInput({
   label,
   file,
   onChange,
+  recordingLimitSeconds = 30,
 }: {
   id: string;
   label: string;
   file: File | null;
   onChange: (file: File | null) => void;
+  recordingLimitSeconds?: number;
 }) {
+  const recordingLimit = Math.max(1, Math.min(30, recordingLimitSeconds));
   const [mode, setMode] = useState<InputMode>("file");
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -227,8 +229,8 @@ export function AudioInput({
     elapsedTimerRef.current = window.setInterval(() => {
       setElapsed((performance.now() - recordingStartedRef.current) / 1000);
     }, 100);
-    stopTimerRef.current = window.setTimeout(stopRecording, MAX_RECORDING_SECONDS * 1000);
-  }, [finishRecording, stopRecording]);
+    stopTimerRef.current = window.setTimeout(stopRecording, recordingLimit * 1000);
+  }, [finishRecording, recordingLimit, stopRecording]);
 
   const startCountdown = useCallback(() => {
     if (!streamRef.current || status !== "ready") return;
@@ -309,7 +311,7 @@ export function AudioInput({
             <span style={{ width: `${Math.max(1, level * 100)}%` }} />
           </div>
           <div className="recorder-meta">
-            <span>{status === "recording" ? `${formatSeconds(elapsed)} / 0:30` : "最大30秒"}</span>
+            <span>{status === "recording" ? `${formatSeconds(elapsed)} / ${formatSeconds(recordingLimit)}` : `最大${recordingLimit.toFixed(1)}秒`}</span>
             <span className={clipped ? "clip-active" : ""}>{clipped ? "クリップ検出" : "入力レベルを確認"}</span>
           </div>
 

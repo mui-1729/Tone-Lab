@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CompareResponse, ToneKey } from "@/lib/types";
+import type { AudioSelection, CompareResponse, ToneKey } from "@/lib/types";
 
 type Rating = "agree" | "disagree" | "unsure";
 type Overall = "agree" | "partial" | "disagree" | "";
@@ -32,10 +32,12 @@ export function EvaluationSection({
   result,
   referenceName,
   currentName,
+  referenceSelection,
 }: {
   result: CompareResponse;
   referenceName: string;
   currentName: string;
+  referenceSelection?: AudioSelection | null;
 }) {
   const [ratings, setRatings] = useState<Partial<Record<ToneKey, Rating>>>({});
   const [overall, setOverall] = useState<Overall>("");
@@ -55,10 +57,11 @@ export function EvaluationSection({
     }));
     const filename = `tone-lab-evaluation_${safeStem(referenceName)}_vs_${safeStem(currentName)}.json`;
     downloadJson(filename, {
-      schema_version: 1,
-      app: "Tone Lab MVP 1.0",
+      schema_version: 2,
+      app: "Tone Lab MVP 1.1",
       evaluated_at: new Date().toISOString(),
       files: { reference: referenceName, current: currentName },
+      reference_selection: referenceSelection ?? null,
       overall,
       notes: notes.trim(),
       alignment: result.alignment,
