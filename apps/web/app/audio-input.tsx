@@ -69,7 +69,12 @@ export function AudioInput({
     clearTimers();
     if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     animationRef.current = null;
-    if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    const recorder = recorderRef.current;
+    if (recorder?.state === "recording") {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      recorder.stop();
+    }
     recorderRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
@@ -77,12 +82,8 @@ export function AudioInput({
     contextRef.current = null;
   }, [clearTimers]);
 
-  useEffect(() => {
-    return () => {
-      releaseInput();
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-    };
-  }, [previewUrl, releaseInput]);
+  useEffect(() => () => releaseInput(), [releaseInput]);
+  useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
   const startLevelMeter = useCallback((context: AudioContext, stream: MediaStream) => {
     const analyser = context.createAnalyser();
@@ -149,8 +150,7 @@ export function AudioInput({
       const inputs = (await navigator.mediaDevices.enumerateDevices()).filter((item) => item.kind === "audioinput");
       setDevices(inputs);
       const settings = stream.getAudioTracks()[0]?.getSettings();
-      const resolvedDeviceId = settings?.deviceId ?? deviceId ?? "";
-      setSelectedDeviceId(resolvedDeviceId);
+      setSelectedDeviceId(settings?.deviceId ?? deviceId ?? "");
 
       const enabledProcessing = [
         settings?.echoCancellation ? "エコーキャンセル" : null,
@@ -176,19 +176,20 @@ export function AudioInput({
 
   const finishRecording = useCallback(async (blob: Blob) => {
     setStatus("processing");
+    const decodeContext = new AudioContext();
     try {
-      const decodeContext = new AudioContext();
       const audioBuffer = await decodeContext.decodeAudioData(await blob.arrayBuffer());
       const recording = audioBufferToWavFile(
         audioBuffer,
         `tone-lab-${id}-${new Date().toISOString().replace(/[:.]/g, "-")}.wav`,
       );
-      await decodeContext.close();
       onChange(recording);
       setStatus("ready");
     } catch {
       setStatus("ready");
       setError("録音データをWAVへ変換できませんでした。録り直すかファイル入力を使用してください。");
+    } finally {
+      await decodeContext.close();
     }
   }, [id, onChange]);
 
@@ -200,7 +201,11 @@ export function AudioInput({
 
   const beginRecording = useCallback(() => {
     const stream = streamRef.current;
-    if (!stream) return;
+    if (!stream) {
+      setStatus("idle");
+      setError("音声入力が切断されました。録音を準備し直してください。");
+      return;
+    }
     const mimeType = preferredMimeType();
     const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
     chunksRef.current = [];
@@ -310,11 +315,10 @@ export function AudioInput({
 
           {status === "idle" ? <button type="button" className="record-secondary" onClick={() => void prepareInput()}>録音を準備</button> : null}
           {status === "preparing" ? <button type="button" className="record-secondary" disabled>入力を準備中…</button> : null}
-          {status === "ready" ? <button type="button" className="record-primary" onClick={startCountdown}>3秒後に録音</button> : null}
+          {status === "ready" ? <button type="button" className="record-primary" onClick={startCountdown}>{file ? "3秒後に録り直す" : "3秒後に録音"}</button> : null}
           {status === "countdown" ? <div className="countdown" role="status">{countdown}</div> : null}
           {status === "recording" ? <button type="button" className="record-stop" onClick={stopRecording}>録音を停止</button> : null}
           {status === "processing" ? <button type="button" className="record-secondary" disabled>WAVへ変換中…</button> : null}
-          {file && status === "ready" ? <button type="button" className="record-secondary" onClick={startCountdown}>録り直す</button> : null}
           {warning ? <p className="record-warning" role="status">{warning}</p> : null}
           {error ? <p className="record-error" role="alert">{error}</p> : null}
         </div>
