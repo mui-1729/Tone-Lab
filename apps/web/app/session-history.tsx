@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { BlindAB } from "@/app/blind-ab";
 import { aggregateToneResults } from "@/lib/aggregate";
 import type { ConfidenceLevel } from "@/lib/aggregate";
-import type { ToneSession } from "@/lib/session";
+import type { BlindTrial, ToneSession } from "@/lib/session";
 import { sessionMarkdown, sessionPayload, toneDistance } from "@/lib/session";
+import { saveSession } from "@/lib/session-storage";
 
 type ChangeKind = "start" | "improved" | "maintained" | "worsened";
 
@@ -58,17 +61,40 @@ export function SessionHistory({
   onRename: (name: string) => void;
   onUpdateNote: (takeId: string, note: string) => void;
 }) {
-  const latest = session.takes.at(-1);
+  const [localTrials, setLocalTrials] = useState<{ sessionId: string; trials: BlindTrial[] }>({ sessionId: session.id, trials: [] });
+  const [blindSaveError, setBlindSaveError] = useState<string | null>(null);
+  const extraTrials = localTrials.sessionId === session.id ? localTrials.trials : [];
+  const effectiveSession: ToneSession = {
+    ...session,
+    blind_trials: [...session.blind_trials, ...extraTrials],
+  };
+  const latest = effectiveSession.takes.at(-1);
   if (!latest) return null;
-  const previous = session.takes.at(-2) ?? null;
+  const previous = effectiveSession.takes.at(-2) ?? null;
   const latestDistance = toneDistance(latest.result);
   const previousDistance = previous ? toneDistance(previous.result) : null;
   const previousByKey = new Map(previous?.result.dimensions.map((dimension) => [dimension.key, dimension]) ?? []);
   const touchKeys = new Set(latest.result.adjustment_plan.map((step) => step.key));
   const maintain = latest.result.dimensions.filter((dimension) => Math.abs(dimension.difference) < 8);
   const watch = latest.result.dimensions.filter((dimension) => Math.abs(dimension.difference) >= 8 && !touchKeys.has(dimension.key));
-  const aggregate = aggregateToneResults(session.takes.map((take) => take.result));
-  const stem = `tone-lab-session_${safeStem(session.name)}`;
+  const aggregate = aggregateToneResults(effectiveSession.takes.map((take) => take.result));
+  const stem = `tone-lab-session_${safeStem(effectiveSession.name)}`;
+
+  async function recordBlindTrial(trial: BlindTrial) {
+    const nextExtraTrials = localTrials.sessionId === session.id ? [...localTrials.trials, trial] : [trial];
+    setLocalTrials({ sessionId: session.id, trials: nextExtraTrials });
+    const nextSession: ToneSession = {
+      ...session,
+      updated_at: new Date().toISOString(),
+      blind_trials: [...session.blind_trials, ...nextExtraTrials],
+    };
+    try {
+      await saveSession(nextSession);
+      setBlindSaveError(null);
+    } catch {
+      setBlindSaveError("回答を端末内セッションへ保存できませんでした。空き容量とブラウザの保存設定を確認してください。");
+    }
+  }
 
   return (
     <section className="session-history" aria-labelledby="session-title">
@@ -76,16 +102,16 @@ export function SessionHistory({
         <div>
           <p className="eyebrow">ADJUSTMENT SESSION / 調整履歴</p>
           <input
-            key={`${session.id}-${session.name}`}
+            key={`${effectiveSession.id}-${effectiveSession.name}`}
             id="session-title"
             className="session-name"
             aria-label="セッション名"
-            defaultValue={session.name}
+            defaultValue={effectiveSession.name}
             maxLength={80}
             onBlur={(event) => {
               const value = event.target.value.trim();
-              if (value && value !== session.name) onRename(value);
-              else event.target.value = session.name;
+              if (value && value !== effectiveSession.name) onRename(value);
+              else event.target.value = effectiveSession.name;
             }}
           />
           <p>同じ参考音に対するテイクを残し、5軸の差が0へ近づいたかを確認します。</p>
@@ -130,9 +156,9 @@ export function SessionHistory({
         <table className="session-table">
           <thead><tr><th>テイク</th><th>差の大きさ</th>{latest.result.dimensions.map((dimension) => <th key={dimension.key}>{dimension.label}</th>)}<th>変更メモ</th></tr></thead>
           <tbody>
-            {session.takes.map((take, index) => {
+            {effectiveSession.takes.map((take, index) => {
               const distance = toneDistance(take.result);
-              const before = session.takes[index - 1] ?? null;
+              const before = effectiveSession.takes[index - 1] ?? null;
               const beforeByKey = new Map(before?.result.dimensions.map((dimension) => [dimension.key, dimension]) ?? []);
               return (
                 <tr key={take.id}>
@@ -162,10 +188,13 @@ export function SessionHistory({
         <textarea key={latest.id} defaultValue={latest.note} maxLength={500} placeholder="例: 高域を少し下げた、入力レベルを揃えた" onBlur={(event) => onUpdateNote(latest.id, event.target.value.trim())} />
       </label>
 
+      <BlindAB session={effectiveSession} onComplete={(trial) => void recordBlindTrial(trial)} />
+      {blindSaveError ? <p className="blind-warning" role="alert">{blindSaveError}</p> : null}
+
       <div className="session-actions">
         <button type="button" className="session-next" onClick={onNextTake}>この参考音で次のテイク</button>
-        <button type="button" onClick={() => download(`${stem}.md`, sessionMarkdown(session), "text/markdown;charset=utf-8")}>履歴レポート</button>
-        <button type="button" onClick={() => download(`${stem}.json`, JSON.stringify(sessionPayload(session), null, 2), "application/json;charset=utf-8")}>履歴JSON</button>
+        <button type="button" onClick={() => download(`${stem}.md`, sessionMarkdown(effectiveSession), "text/markdown;charset=utf-8")}>履歴レポート</button>
+        <button type="button" onClick={() => download(`${stem}.json`, JSON.stringify(sessionPayload(effectiveSession), null, 2), "application/json;charset=utf-8")}>履歴JSON</button>
       </div>
 
       <p className="session-note">差の値は音質点ではなく、5軸の参考音との差です。統合判定は直近最大3テイクの中央値であり、信頼度は位置一致・入力品質・テイク間ばらつき・方向一致から算出します。</p>
