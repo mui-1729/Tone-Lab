@@ -297,7 +297,7 @@ export default function Home() {
   return (
     <main>
       <header className="hero">
-        <p className="brand">TONE LAB / MVP 1.2</p>
+        <p className="brand">TONE LAB / 2.0</p>
         <h1>音の違いを、<br />調整できる言葉にする。</h1>
         <p className="lead">参考音を固定し、録音・比較・調整を繰り返した進捗を端末内に保存できます。</p>
       </header>
