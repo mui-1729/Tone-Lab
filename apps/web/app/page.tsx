@@ -4,9 +4,11 @@ import { FormEvent, useState } from "react";
 import { ABAudition } from "@/app/ab-audition";
 import { AudioInput } from "@/app/audio-input";
 import { EvaluationSection } from "@/app/evaluation";
+import { ReferenceRangeSelector } from "@/app/reference-range";
 import { ResultActions } from "@/app/result-actions";
+import { sliceAudioFile } from "@/lib/audio-file";
 import { compareAudio } from "@/lib/api";
-import type { AdjustmentStep, AlignmentInfo, CompareResponse, ComparisonVisuals, QualityInfo, ToneDimension } from "@/lib/types";
+import type { AdjustmentStep, AlignmentInfo, AudioSelection, CompareResponse, ComparisonVisuals, QualityInfo, ToneDimension } from "@/lib/types";
 
 const CHART_WIDTH = 640;
 const CHART_HEIGHT = 190;
@@ -40,8 +42,46 @@ function ComparisonVisualsSection({ visuals }: { visuals: ComparisonVisuals }) {
 function DimensionCard({ dimension }: { dimension: ToneDimension }) { const magnitude = Math.min(100, Math.abs(dimension.difference)); const left = dimension.difference < 0 ? 50 - magnitude / 2 : 50; return <article className="dimension-card"><div className="dimension-heading"><div><h3>{dimension.label}</h3><p>{directionLabel(dimension.difference)}</p></div><strong>{dimension.difference > 0 ? "+" : ""}{dimension.difference.toFixed(0)}</strong></div><div className="scale" aria-label={`${dimension.label}の差 ${dimension.difference.toFixed(0)}`}><span className="scale-center" /><span className="scale-fill" style={{ left: `${left}%`, width: `${magnitude / 2}%` }} /></div><p className="interpretation">{dimension.interpretation}</p><ul>{dimension.evidence.map((item) => <li key={item}>{item}</li>)}</ul><p className="suggestion"><span>調整方向</span>{dimension.suggestion}</p></article>; }
 
 export default function Home() {
-  const [reference, setReference] = useState<File | null>(null); const [current, setCurrent] = useState<File | null>(null); const [result, setResult] = useState<CompareResponse | null>(null); const [error, setError] = useState<string | null>(null); const [loading, setLoading] = useState(false);
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); if (!reference || !current) { setError("参考音と自分の音を両方選択または録音してください。"); return; } setLoading(true); setError(null); setResult(null); try { setResult(await compareAudio(reference, current)); } catch (caught) { setError(caught instanceof Error ? caught.message : "解析に失敗しました。"); } finally { setLoading(false); } }
-  function reset() { setReference(null); setCurrent(null); setResult(null); setError(null); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  return <main><header className="hero"><p className="brand">TONE LAB / MVP 1.1</p><h1>音の違いを、<br />調整できる言葉にする。</h1><p className="lead">参考音と自分のギター音を、手元のファイルまたはブラウザ録音から比較できます。</p></header><form className="workspace" onSubmit={handleSubmit}><div className="upload-grid"><AudioInput id="reference" label="REFERENCE / 参考音" file={reference} onChange={setReference} /><AudioInput id="current" label="CURRENT / 自分の音" file={current} onChange={setCurrent} /></div><div className="conditions"><span>ファイルまたは直接録音</span><span>同じフレーズ推奨</span><span>開始位置を自動補正</span><span>最大30秒</span></div><p className="privacy-note">録音はブラウザ内でWAVへ変換します。音源は解析中だけ一時的に扱い、処理後に削除します。サーバー側の音源保存はありません。</p><button className="analyze-button" type="submit" disabled={loading}>{loading ? "解析中…" : "2つの音を比較する"}</button>{error ? <p className="error" role="alert">{error}</p> : null}</form>{result && reference && current ? <section className="results"><div className="result-title"><p className="eyebrow">COMPARISON</p><h2>主な違い</h2></div><AlignmentStatus alignment={result.alignment} /><QualityStatus quality={result.quality} /><ABAudition referenceFile={reference} currentFile={current} result={result} /><div className="summary-grid">{result.summary.map((item) => <p key={item}>{item}</p>)}</div><AdjustmentPlanSection steps={result.adjustment_plan} /><div className="legend"><span>− 参考音が強い</span><span>0 近い</span><span>＋ 自分の音が強い</span></div><div className="dimension-grid">{result.dimensions.map((dimension) => <DimensionCard key={dimension.key} dimension={dimension} />)}</div><ComparisonVisualsSection visuals={result.visuals} /><EvaluationSection result={result} referenceName={reference.name} currentName={current.name} /><details className="raw-data"><summary>測定値を見る</summary><pre>{JSON.stringify({ alignment: result.alignment, quality: result.quality, reference: result.reference, current: result.current }, null, 2)}</pre></details><p className="disclaimer">{result.disclaimer}</p><ResultActions result={result} referenceName={reference.name} currentName={current.name} onReset={reset} /></section> : null}</main>;
+  const [reference, setReference] = useState<File | null>(null);
+  const [current, setCurrent] = useState<File | null>(null);
+  const [referenceSelection, setReferenceSelection] = useState<AudioSelection | null>(null);
+  const [analyzedReference, setAnalyzedReference] = useState<File | null>(null);
+  const [result, setResult] = useState<CompareResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  function changeReference(file: File | null) {
+    setReference(file);
+    setReferenceSelection(null);
+    setAnalyzedReference(null);
+    setResult(null);
+  }
+
+  function changeReferenceSelection(selection: AudioSelection | null) {
+    setReferenceSelection(selection);
+    setAnalyzedReference(null);
+    setResult(null);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!reference || !current) { setError("参考音と自分の音を両方選択または録音してください。"); return; }
+    setLoading(true); setError(null); setResult(null);
+    try {
+      const preparedReference = referenceSelection ? await sliceAudioFile(reference, referenceSelection) : reference;
+      const response = await compareAudio(preparedReference, current);
+      setAnalyzedReference(preparedReference);
+      setResult(response);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "区間の切り出しまたは解析に失敗しました。");
+    } finally { setLoading(false); }
+  }
+
+  function reset() {
+    setReference(null); setCurrent(null); setReferenceSelection(null); setAnalyzedReference(null); setResult(null); setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const recordingLimit = referenceSelection ? referenceSelection.end_seconds - referenceSelection.start_seconds : 30;
+  return <main><header className="hero"><p className="brand">TONE LAB / MVP 1.1</p><h1>音の違いを、<br />調整できる言葉にする。</h1><p className="lead">参考音の使う区間を選び、ファイルまたはブラウザ録音の自分の音と比較できます。</p></header><form className="workspace" onSubmit={handleSubmit}><div className="upload-grid"><AudioInput id="reference" label="REFERENCE / 参考音" file={reference} onChange={changeReference} /><AudioInput id="current" label="CURRENT / 自分の音" file={current} onChange={setCurrent} recordingLimitSeconds={recordingLimit} /></div>{reference ? <ReferenceRangeSelector key={`${reference.name}-${reference.lastModified}`} file={reference} selection={referenceSelection} onChange={changeReferenceSelection} /> : null}<div className="conditions"><span>比較区間を選択可能</span><span>ファイルまたは直接録音</span><span>開始位置を自動補正</span><span>最大30秒</span></div><p className="privacy-note">区間の切り出しと録音のWAV変換はブラウザ内で行います。音源は解析中だけ一時的に扱い、サーバーへ保存しません。</p><button className="analyze-button" type="submit" disabled={loading}>{loading ? "解析中…" : "2つの音を比較する"}</button>{error ? <p className="error" role="alert">{error}</p> : null}</form>{result && analyzedReference && reference && current ? <section className="results"><div className="result-title"><p className="eyebrow">COMPARISON</p><h2>主な違い</h2></div><AlignmentStatus alignment={result.alignment} /><QualityStatus quality={result.quality} /><ABAudition referenceFile={analyzedReference} currentFile={current} result={result} /><div className="summary-grid">{result.summary.map((item) => <p key={item}>{item}</p>)}</div><AdjustmentPlanSection steps={result.adjustment_plan} /><div className="legend"><span>− 参考音が強い</span><span>0 近い</span><span>＋ 自分の音が強い</span></div><div className="dimension-grid">{result.dimensions.map((dimension) => <DimensionCard key={dimension.key} dimension={dimension} />)}</div><ComparisonVisualsSection visuals={result.visuals} /><EvaluationSection result={result} referenceName={reference.name} currentName={current.name} referenceSelection={referenceSelection} /><details className="raw-data"><summary>測定値を見る</summary><pre>{JSON.stringify({ reference_selection: referenceSelection, alignment: result.alignment, quality: result.quality, reference: result.reference, current: result.current }, null, 2)}</pre></details><p className="disclaimer">{result.disclaimer}</p><ResultActions result={result} referenceName={reference.name} currentName={current.name} referenceSelection={referenceSelection} onReset={reset} /></section> : null}</main>;
 }
