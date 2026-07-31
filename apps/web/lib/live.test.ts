@@ -16,7 +16,10 @@ test("copies a shorter tail without mutating the rolling state", () => {
     Float32Array.from([0.1, 0.2, 0.3, 0.4]),
     10,
   );
-  assert.deepEqual([...copyRollingTail(state, 2)], [0.3, 0.4]);
+  const tail = copyRollingTail(state, 2);
+  assert.equal(tail.length, 2);
+  assert.ok(Math.abs(tail[0] - 0.3) < 1e-6);
+  assert.ok(Math.abs(tail[1] - 0.4) < 1e-6);
   assert.equal(state.sample_count, 4);
 });
 
