@@ -27,11 +27,28 @@ function requestResult<T>(request: IDBRequest<T>) {
   });
 }
 
+function transactionDone(transaction: IDBTransaction) {
+  return new Promise<void>((resolve, reject) => {
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error ?? new Error("端末内データの保存が中断されました。"));
+    transaction.onerror = () => reject(transaction.error ?? new Error("端末内データの保存に失敗しました。"));
+  });
+}
+
+function mergeBlindTrials(existing: ToneSession | null, incoming: ToneSession) {
+  const trials = new Map(existing?.blind_trials.map((trial) => [trial.id, trial]) ?? []);
+  for (const trial of incoming.blind_trials) trials.set(trial.id, trial);
+  return { ...incoming, blind_trials: [...trials.values()] };
+}
+
 export async function saveSession(session: ToneSession) {
+  const existing = await loadSession(session.id);
+  const value = mergeBlindTrials(existing, session);
   const database = await openDatabase();
   try {
     const transaction = database.transaction(SESSION_STORE, "readwrite");
-    await requestResult(transaction.objectStore(SESSION_STORE).put(session));
+    const request = transaction.objectStore(SESSION_STORE).put(value);
+    await Promise.all([requestResult(request), transactionDone(transaction)]);
   } finally {
     database.close();
   }
@@ -71,7 +88,8 @@ export async function deleteSession(id: string) {
   const database = await openDatabase();
   try {
     const transaction = database.transaction(SESSION_STORE, "readwrite");
-    await requestResult(transaction.objectStore(SESSION_STORE).delete(id));
+    const request = transaction.objectStore(SESSION_STORE).delete(id);
+    await Promise.all([requestResult(request), transactionDone(transaction)]);
   } finally {
     database.close();
   }
@@ -81,7 +99,8 @@ export async function clearSessions() {
   const database = await openDatabase();
   try {
     const transaction = database.transaction(SESSION_STORE, "readwrite");
-    await requestResult(transaction.objectStore(SESSION_STORE).clear());
+    const request = transaction.objectStore(SESSION_STORE).clear();
+    await Promise.all([requestResult(request), transactionDone(transaction)]);
   } finally {
     database.close();
   }
