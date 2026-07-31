@@ -58,7 +58,7 @@ export function EvaluationSection({
     const filename = `tone-lab-evaluation_${safeStem(referenceName)}_vs_${safeStem(currentName)}.json`;
     downloadJson(filename, {
       schema_version: 3,
-      app: "Tone Lab MVP 1.3",
+      app: "Tone Lab 2.0.0",
       evaluated_at: new Date().toISOString(),
       files: { reference: referenceName, current: currentName },
       reference_selection: referenceSelection ?? null,
