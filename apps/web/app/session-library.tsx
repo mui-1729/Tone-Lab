@@ -42,19 +42,27 @@ export function SessionLibrary({
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (cancelled?: () => boolean) => {
     try {
       const [nextSummaries, nextStorage] = await Promise.all([listSessionSummaries(), storageStatus()]);
+      if (cancelled?.()) return;
       setSummaries(nextSummaries);
       setStorage(nextStorage);
       setError(null);
     } catch {
-      setError("端末内ライブラリを読み込めませんでした。ブラウザの保存設定を確認してください。");
+      if (!cancelled?.()) setError("端末内ライブラリを読み込めませんでした。ブラウザの保存設定を確認してください。");
     }
   }, []);
 
   useEffect(() => {
-    void refresh();
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void refresh(() => cancelled);
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [refresh, revision]);
 
   async function load(id: string) {
@@ -76,6 +84,10 @@ export function SessionLibrary({
     if (!value || value === summary.name) return;
     try {
       await renameSession(summary.id, value);
+      if (summary.id === activeSessionId) {
+        const renamed = await loadSession(summary.id);
+        if (renamed) onLoad(renamed);
+      }
       await refresh();
     } catch {
       setError("セッション名を変更できませんでした。");
