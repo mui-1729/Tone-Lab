@@ -53,6 +53,12 @@ export function ReferenceRangeSelector({
 
   useEffect(() => () => URL.revokeObjectURL(url), [url]);
 
+  function clearSelection() {
+    audioRef.current?.pause();
+    setPlaying(false);
+    onChange(null);
+  }
+
   function updateStart(nextStart: number) {
     if (!selection) return;
     const latestStart = Math.min(nextStart, selection.end_seconds - MIN_SELECTION_SECONDS);
@@ -90,6 +96,7 @@ export function ReferenceRangeSelector({
 
   const startPercent = selection && duration ? (selection.start_seconds / duration) * 100 : 0;
   const widthPercent = selection && duration ? ((selection.end_seconds - selection.start_seconds) / duration) * 100 : 100;
+  const tooShort = duration > 0 && duration < MIN_SELECTION_SECONDS;
 
   return (
     <section className="range-selector" aria-labelledby="range-title">
@@ -98,13 +105,14 @@ export function ReferenceRangeSelector({
           <p className="eyebrow">REFERENCE RANGE / 比較区間</p>
           <h3 id="range-title">参考音の使う部分を選ぶ</h3>
         </div>
-        {selection ? <button type="button" className="range-clear" onClick={() => onChange(null)}>区間指定を解除</button> : null}
+        {selection ? <button type="button" className="range-clear" onClick={clearSelection}>区間指定を解除</button> : null}
       </div>
 
       {decodeError ? <p className="range-error" role="status">{decodeError}</p> : null}
       {!decodeError && !duration ? <p className="range-loading">波形を準備中…</p> : null}
+      {tooShort ? <p className="range-error" role="status">1秒未満の音源は区間指定できません。元の音源をそのまま比較します。</p> : null}
 
-      {duration > 0 ? (
+      {duration > 0 && !tooShort ? (
         <>
           <div className="range-waveform" aria-label={`音源の長さ ${formatTime(duration)}`}>
             <div className="range-selection-overlay" style={{ left: `${startPercent}%`, width: `${widthPercent}%` }} />
