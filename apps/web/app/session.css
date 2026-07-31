@@ -4,14 +4,14 @@
   border:1px solid var(--line);
   background:var(--panel);
 }
-.library-heading,.session-heading {
+.library-heading,.session-heading,.aggregate-heading {
   display:flex;
   justify-content:space-between;
   align-items:start;
   gap:24px;
 }
 .library-heading h2 { margin:6px 0 8px; font-size:clamp(26px,4vw,42px); }
-.library-heading p:last-child,.session-heading p:last-child { max-width:680px; margin:0; color:var(--muted); line-height:1.65; }
+.library-heading p:last-child,.session-heading p:last-child,.aggregate-heading p:last-child { max-width:680px; margin:0; color:var(--muted); line-height:1.65; }
 .storage-status {
   display:grid;
   flex-shrink:0;
@@ -102,6 +102,26 @@
 }
 .session-focus-grid span,.latest-change-grid span { color:var(--muted); font-size:11px; }
 .session-focus-grid strong { line-height:1.5; }
+.aggregate-section { margin-top:22px; padding:20px; border:1px solid var(--line); background:var(--bg); }
+.aggregate-heading .eyebrow { margin:0 0 7px; }
+.aggregate-heading h3 { margin:0 0 8px; font-size:25px; }
+.aggregate-distance { display:grid; flex-shrink:0; justify-items:end; }
+.aggregate-distance strong { font-size:42px; line-height:1; }
+.aggregate-distance span { color:var(--muted); font-size:11px; }
+.aggregate-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; margin-top:18px; }
+.aggregate-grid article { padding:14px; border:1px solid var(--line); background:var(--panel); }
+.aggregate-grid article>div:first-child { display:flex; justify-content:space-between; align-items:start; gap:10px; }
+.aggregate-grid article>div:first-child span { color:var(--muted); font-size:11px; }
+.aggregate-grid article>div:first-child strong { font-size:25px; }
+.aggregate-grid article>p { margin:10px 0 7px; font-size:11px; font-weight:800; }
+.aggregate-grid article>small { display:block; margin-top:7px; color:var(--muted); font-size:10px; line-height:1.5; }
+.aggregate-grid .confidence-reason { min-height:50px; color:var(--muted); font-weight:400; line-height:1.55; }
+.confidence-meter { height:7px; overflow:hidden; background:#30302b; }
+.confidence-meter span { display:block; height:100%; background:var(--accent); }
+.confidence-high { border-color:var(--accent)!important; }
+.confidence-low { border-color:var(--danger)!important; }
+.confidence-low .confidence-meter span { background:var(--danger); }
+.aggregate-advice { margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.6; }
 .session-table-wrap { margin-top:18px; overflow:auto; border:1px solid var(--line); }
 .session-table { width:100%; min-width:900px; border-collapse:collapse; }
 .session-table th,.session-table td { padding:13px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
@@ -125,15 +145,18 @@
 .session-actions .session-next { border-color:var(--accent); background:var(--accent); color:#111; }
 .session-note { margin:16px 0 0; padding-top:14px; border-top:1px solid var(--line); color:var(--muted); font-size:12px; line-height:1.65; }
 .session-storage-warning { margin:12px 0 0; color:var(--danger); font-size:12px; line-height:1.6; }
+@media (max-width:1050px) {
+  .aggregate-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
 @media (max-width:900px) {
   .latest-change-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 @media (max-width:760px) {
-  .library-heading,.session-heading { flex-direction:column; }
-  .storage-status,.session-primary-status { justify-items:start; text-align:left; }
+  .library-heading,.session-heading,.aggregate-heading { flex-direction:column; }
+  .storage-status,.session-primary-status,.aggregate-distance { justify-items:start; text-align:left; }
   .library-list article { grid-template-columns:1fr auto; }
   .library-item-actions { grid-column:1/-1; }
-  .session-focus-grid { grid-template-columns:1fr; }
+  .session-focus-grid,.aggregate-grid { grid-template-columns:1fr; }
 }
 @media print {
   .session-library,.session-actions,.take-note { display:none!important; }

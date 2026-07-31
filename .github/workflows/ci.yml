@@ -29,7 +29,7 @@ jobs:
         run: pytest -q
 
   web:
-    name: Web lint and build
+    name: Web tests, lint and build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -41,6 +41,8 @@ jobs:
           node-version: "22"
       - name: Install web dependencies
         run: npm install --no-audit --no-fund
+      - name: Run unit tests
+        run: npm test
       - name: Run lint
         run: npm run lint
       - name: Build web app
