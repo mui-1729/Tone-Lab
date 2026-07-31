@@ -2,7 +2,11 @@ import type { CompareResponse } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export async function compareAudio(reference: File, current: File): Promise<CompareResponse> {
+export async function compareAudio(
+  reference: File,
+  current: File,
+  signal?: AbortSignal,
+): Promise<CompareResponse> {
   const form = new FormData();
   form.append("reference", reference);
   form.append("current", current);
@@ -10,6 +14,7 @@ export async function compareAudio(reference: File, current: File): Promise<Comp
   const response = await fetch(`${API_URL}/api/v1/compare`, {
     method: "POST",
     body: form,
+    signal,
   });
 
   if (!response.ok) {
