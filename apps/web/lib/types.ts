@@ -1,5 +1,10 @@
 export type ToneKey = "brightness" | "body" | "attack" | "compression" | "roughness";
 
+export type AudioSelection = {
+  start_seconds: number;
+  end_seconds: number;
+};
+
 export type BandEnergy = {
   low: number;
   low_mid: number;
