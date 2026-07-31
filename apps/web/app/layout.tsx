@@ -5,10 +5,11 @@ import "./range.css";
 import "./session.css";
 import "./blind.css";
 import "./dashboard.css";
+import "./live.css";
 
 export const metadata: Metadata = {
   title: "Tone Lab — ギター音の比較と調整支援",
-  description: "参考音と自分の録音を比較し、調整履歴、ブラインドA/B、聴感評価の集計から5つの質感差を検証できる音作り支援ツール。",
+  description: "参考音と自分の録音を比較し、調整履歴、ブラインドA/B、聴感評価集計、演奏中のリアルタイム比較を利用できる音作り支援ツール。",
   applicationName: "Tone Lab",
 };
 
