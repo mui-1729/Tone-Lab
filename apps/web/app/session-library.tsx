@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { EvaluationDashboard } from "@/app/evaluation-dashboard";
 import type { SessionSummary, ToneSession } from "@/lib/session";
 import {
   clearSessions,
@@ -128,47 +129,50 @@ export function SessionLibrary({
   }
 
   return (
-    <section className="session-library" aria-labelledby="library-title">
-      <div className="library-heading">
-        <div>
-          <p className="eyebrow">LOCAL LIBRARY / 端末内ライブラリ</p>
-          <h2 id="library-title">参考音と調整履歴</h2>
-          <p>音源と結果はこのブラウザの端末内だけに保存されます。サーバーや他の端末とは同期しません。</p>
+    <>
+      <section className="session-library" aria-labelledby="library-title">
+        <div className="library-heading">
+          <div>
+            <p className="eyebrow">LOCAL LIBRARY / 端末内ライブラリ</p>
+            <h2 id="library-title">参考音と調整履歴</h2>
+            <p>音源と結果はこのブラウザの端末内だけに保存されます。サーバーや他の端末とは同期しません。</p>
+          </div>
+          <div className="storage-status">
+            <span>{formatBytes(storage.usage)} / {formatBytes(storage.quota)}</span>
+            <strong>{storage.persisted ? "永続保存済み" : "通常保存"}</strong>
+          </div>
         </div>
-        <div className="storage-status">
-          <span>{formatBytes(storage.usage)} / {formatBytes(storage.quota)}</span>
-          <strong>{storage.persisted ? "永続保存済み" : "通常保存"}</strong>
+
+        {error ? <p className="library-error" role="alert">{error}</p> : null}
+
+        {summaries.length ? (
+          <div className="library-list">
+            {summaries.map((summary) => (
+              <article key={summary.id} className={summary.id === activeSessionId ? "active" : ""}>
+                <button type="button" className="library-open" disabled={loadingId === summary.id} onClick={() => void load(summary.id)}>
+                  <span>{summary.name}</span>
+                  <small>{summary.reference_name}</small>
+                  <small>{new Date(summary.updated_at).toLocaleString("ja-JP")} / {summary.take_count}テイク</small>
+                </button>
+                <div className="library-distance">
+                  <strong>{summary.latest_distance === null ? "—" : summary.latest_distance.toFixed(1)}</strong>
+                  <span>最新の差</span>
+                </div>
+                <div className="library-item-actions">
+                  <button type="button" onClick={() => void rename(summary)}>名前変更</button>
+                  <button type="button" onClick={() => void remove(summary)}>削除</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : <p className="library-empty">保存されたセッションはまだありません。最初の比較が完了すると自動保存されます。</p>}
+
+        <div className="library-footer">
+          {!storage.persisted ? <button type="button" onClick={() => void persist()}>保存を保持しやすくする</button> : null}
+          {summaries.length ? <button type="button" className="library-clear" onClick={() => void removeAll()}>すべて削除</button> : null}
         </div>
-      </div>
-
-      {error ? <p className="library-error" role="alert">{error}</p> : null}
-
-      {summaries.length ? (
-        <div className="library-list">
-          {summaries.map((summary) => (
-            <article key={summary.id} className={summary.id === activeSessionId ? "active" : ""}>
-              <button type="button" className="library-open" disabled={loadingId === summary.id} onClick={() => void load(summary.id)}>
-                <span>{summary.name}</span>
-                <small>{summary.reference_name}</small>
-                <small>{new Date(summary.updated_at).toLocaleString("ja-JP")} / {summary.take_count}テイク</small>
-              </button>
-              <div className="library-distance">
-                <strong>{summary.latest_distance === null ? "—" : summary.latest_distance.toFixed(1)}</strong>
-                <span>最新の差</span>
-              </div>
-              <div className="library-item-actions">
-                <button type="button" onClick={() => void rename(summary)}>名前変更</button>
-                <button type="button" onClick={() => void remove(summary)}>削除</button>
-              </div>
-            </article>
-          ))}
-        </div>
-      ) : <p className="library-empty">保存されたセッションはまだありません。最初の比較が完了すると自動保存されます。</p>}
-
-      <div className="library-footer">
-        {!storage.persisted ? <button type="button" onClick={() => void persist()}>保存を保持しやすくする</button> : null}
-        {summaries.length ? <button type="button" className="library-clear" onClick={() => void removeAll()}>すべて削除</button> : null}
-      </div>
-    </section>
+      </section>
+      <EvaluationDashboard />
+    </>
   );
 }
