@@ -56,9 +56,11 @@ export function LiveSessionPanel({
   if (error) return <p className="live-error" role="alert">{error}</p>;
   if (!session) return <p className="live-loading">リアルタイム比較用のセッションを準備中…</p>;
 
+  const activeSession = session;
+
   async function saveLiveTake(file: File, result: CompareResponse) {
-    const latest = await loadSession(session.id);
-    const base = latest ?? session;
+    const latest = await loadSession(activeSession.id);
+    const base = latest ?? activeSession;
     const now = new Date().toISOString();
     const take: SessionTake = {
       id: createId("take"),
@@ -77,5 +79,5 @@ export function LiveSessionPanel({
     onSessionUpdated(nextSession);
   }
 
-  return <LiveComparison session={session} onSaveTake={saveLiveTake} />;
+  return <LiveComparison session={activeSession} onSaveTake={saveLiveTake} />;
 }
