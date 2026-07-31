@@ -3,6 +3,8 @@
 import type { ToneSession } from "@/lib/session";
 import { sessionMarkdown, sessionPayload, toneDistance } from "@/lib/session";
 
+type ChangeKind = "start" | "improved" | "maintained" | "worsened";
+
 function download(filename: string, content: string, type: string) {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const anchor = document.createElement("a");
@@ -19,12 +21,16 @@ function safeStem(value: string) {
   return value.replace(/[^a-zA-Z0-9ぁ-んァ-ヶ一-龠_-]+/g, "-").slice(0, 48) || "session";
 }
 
-function changeLabel(current: number, previous: number | null) {
-  if (previous === null) return "開始";
+function changeKind(current: number, previous: number | null): ChangeKind {
+  if (previous === null) return "start";
   const delta = Math.abs(current) - Math.abs(previous);
-  if (delta <= -2) return "改善";
-  if (delta >= 2) return "悪化";
-  return "維持";
+  if (delta <= -2) return "improved";
+  if (delta >= 2) return "worsened";
+  return "maintained";
+}
+
+function changeLabel(kind: ChangeKind) {
+  return { start: "開始", improved: "改善", maintained: "維持", worsened: "悪化" }[kind];
 }
 
 function distanceLabel(current: number, previous: number | null) {
@@ -51,7 +57,6 @@ export function SessionHistory({
   const previous = session.takes.at(-2) ?? null;
   const latestDistance = toneDistance(latest.result);
   const previousDistance = previous ? toneDistance(previous.result) : null;
-  const latestByKey = new Map(latest.result.dimensions.map((dimension) => [dimension.key, dimension]));
   const previousByKey = new Map(previous?.result.dimensions.map((dimension) => [dimension.key, dimension]) ?? []);
   const touchKeys = new Set(latest.result.adjustment_plan.map((step) => step.key));
   const maintain = latest.result.dimensions.filter((dimension) => Math.abs(dimension.difference) < 8);
@@ -65,6 +70,7 @@ export function SessionHistory({
           <p className="eyebrow">ADJUSTMENT SESSION / 調整履歴</p>
           <input
             key={`${session.id}-${session.name}`}
+            id="session-title"
             className="session-name"
             aria-label="セッション名"
             defaultValue={session.name}
@@ -119,8 +125,8 @@ export function SessionHistory({
                   <th scope="row">#{index + 1}<small>{new Date(take.created_at).toLocaleString("ja-JP")}</small></th>
                   <td><strong>{distance.toFixed(1)}</strong><small>{distanceLabel(distance, before ? toneDistance(before.result) : null)}</small></td>
                   {take.result.dimensions.map((dimension) => {
-                    const old = beforeByKey.get(dimension.key)?.difference ?? null;
-                    return <td key={dimension.key}><strong>{dimension.difference > 0 ? "+" : ""}{dimension.difference.toFixed(0)}</strong><small>{changeLabel(dimension.difference, old)}</small></td>;
+                    const kind = changeKind(dimension.difference, beforeByKey.get(dimension.key)?.difference ?? null);
+                    return <td key={dimension.key}><strong>{dimension.difference > 0 ? "+" : ""}{dimension.difference.toFixed(0)}</strong><small>{changeLabel(kind)}</small></td>;
                   })}
                   <td>{take.note || "—"}</td>
                 </tr>
@@ -132,12 +138,12 @@ export function SessionHistory({
 
       <div className="latest-change-grid">
         {latest.result.dimensions.map((dimension) => {
-          const before = previousByKey.get(dimension.key)?.difference ?? null;
+          const kind = changeKind(dimension.difference, previousByKey.get(dimension.key)?.difference ?? null);
           return (
-            <article key={dimension.key} className={`trend-${changeLabel(dimension.difference, before)}`}>
+            <article key={dimension.key} className={`trend-${kind}`}>
               <span>{dimension.label}</span>
               <strong>{dimension.difference > 0 ? "+" : ""}{dimension.difference.toFixed(0)}</strong>
-              <small>{changeLabel(dimension.difference, before)}</small>
+              <small>{changeLabel(kind)}</small>
             </article>
           );
         })}
