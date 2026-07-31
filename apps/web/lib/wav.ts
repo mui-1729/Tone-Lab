@@ -1,18 +1,30 @@
+import type { AudioSelection } from "@/lib/types";
+
 function writeAscii(view: DataView, offset: number, value: string) {
   for (let index = 0; index < value.length; index += 1) {
     view.setUint8(offset + index, value.charCodeAt(index));
   }
 }
 
-export function audioBufferToWavFile(buffer: AudioBuffer, filename: string) {
+export function audioBufferToWavFile(
+  buffer: AudioBuffer,
+  filename: string,
+  selection?: AudioSelection,
+) {
   const channelCount = Math.max(1, buffer.numberOfChannels);
-  const frameCount = buffer.length;
+  const startFrame = selection
+    ? Math.max(0, Math.min(buffer.length - 1, Math.floor(selection.start_seconds * buffer.sampleRate)))
+    : 0;
+  const endFrame = selection
+    ? Math.max(startFrame + 1, Math.min(buffer.length, Math.ceil(selection.end_seconds * buffer.sampleRate)))
+    : buffer.length;
+  const frameCount = endFrame - startFrame;
   const mono = new Float32Array(frameCount);
 
   for (let channel = 0; channel < channelCount; channel += 1) {
     const samples = buffer.getChannelData(channel);
     for (let frame = 0; frame < frameCount; frame += 1) {
-      mono[frame] += samples[frame] / channelCount;
+      mono[frame] += samples[startFrame + frame] / channelCount;
     }
   }
 
